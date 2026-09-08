@@ -26,6 +26,7 @@ export default function OccasionScreen() {
       footer={
         <PrimaryButton
           label="Continue"
+          testID="btn-continue-occasion"
           disabled={!selectedOccasion}
           onPress={() => router.push('/budget')}
         />

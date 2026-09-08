@@ -1,8 +1,8 @@
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -16,6 +16,7 @@ type PrimaryButtonProps = {
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'ghost';
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 };
 
 export function PrimaryButton({
@@ -25,30 +26,26 @@ export function PrimaryButton({
   variant = 'primary',
   disabled = false,
   style,
+  testID,
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
 
   return (
-    <Pressable
+    <TouchableOpacity
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled }}
-      // Keep receiving pointer events when visually disabled so web clicks
-      // do not fall through to content behind sticky footers.
-      disabled={false}
-      onPress={() => {
-        if (!isDisabled) {
-          onPress();
-        }
-      }}
-      style={({ pressed }) => [
+      activeOpacity={0.85}
+      disabled={isDisabled}
+      onPress={onPress}
+      style={[
         styles.base,
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
-        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style,
       ]}
+      testID={testID}
     >
       {loading ? (
         <ActivityIndicator
@@ -66,7 +63,7 @@ export function PrimaryButton({
           {label}
         </Text>
       )}
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -77,7 +74,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-    },
+  },
   primary: {
     backgroundColor: colors.accent,
   },
@@ -88,9 +85,6 @@ const styles = StyleSheet.create({
   },
   ghost: {
     backgroundColor: 'transparent',
-  },
-  pressed: {
-    opacity: 0.88,
   },
   disabled: {
     opacity: 0.4,

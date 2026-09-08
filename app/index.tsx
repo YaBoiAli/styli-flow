@@ -16,6 +16,7 @@ export default function WelcomeScreen() {
       footer={
         <PrimaryButton
           label="Get Started"
+          testID="btn-get-started"
           onPress={() => router.push('/style')}
         />
       }

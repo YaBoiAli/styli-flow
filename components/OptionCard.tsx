@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/constants/theme';
 
@@ -10,18 +10,16 @@ type OptionCardProps = {
 
 export function OptionCard({ label, selected, onPress }: OptionCardProps) {
   return (
-    <Pressable
+    <TouchableOpacity
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      activeOpacity={0.9}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        selected && styles.cardSelected,
-        pressed && styles.pressed,
-      ]}
+      style={[styles.card, selected && styles.cardSelected]}
+      testID={`option-card-${label}`}
     >
       <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -39,9 +37,6 @@ const styles = StyleSheet.create({
   cardSelected: {
     borderColor: colors.borderSelected,
     backgroundColor: colors.surfaceMuted,
-  },
-  pressed: {
-    opacity: 0.92,
   },
   label: {
     ...typography.label,

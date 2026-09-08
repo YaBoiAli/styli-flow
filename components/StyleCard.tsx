@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/constants/theme';
 import type { Style } from '@/types';
@@ -24,22 +24,20 @@ const styleHints: Record<Style, string> = {
 
 export function StyleCard({ styleName, selected, onPress }: StyleCardProps) {
   return (
-    <Pressable
+    <TouchableOpacity
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      activeOpacity={0.9}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        selected && styles.cardSelected,
-        pressed && styles.pressed,
-      ]}
+      style={[styles.card, selected && styles.cardSelected]}
+      testID={`style-card-${styleName}`}
     >
       <View style={[styles.swatch, selected && styles.swatchSelected]} />
       <Text style={[styles.title, selected && styles.titleSelected]}>
         {styleName}
       </Text>
       <Text style={styles.hint}>{styleHints[styleName]}</Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -58,9 +56,6 @@ const styles = StyleSheet.create({
   cardSelected: {
     borderColor: colors.borderSelected,
     backgroundColor: colors.surfaceMuted,
-  },
-  pressed: {
-    opacity: 0.92,
   },
   swatch: {
     width: 28,

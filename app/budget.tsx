@@ -34,6 +34,7 @@ export default function BudgetScreen() {
       footer={
         <PrimaryButton
           label="Build my fit"
+          testID="btn-build-fit"
           disabled={!selectedBudget || selectedBudget <= 0}
           onPress={() => router.push('/generation')}
         />

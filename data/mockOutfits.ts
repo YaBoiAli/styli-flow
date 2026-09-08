@@ -6,7 +6,7 @@ const productCatalog: Record<Style, Product[]> = {
       id: 'st-1',
       name: 'Oversized Black Tee',
       price: 24.99,
-      imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=600&q=80',
+      imageUrl: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600&q=80',
       category: 'top',
     },
     {
@@ -318,11 +318,22 @@ function roundPrice(value: number): number {
 }
 
 function selectProductsForBudget(products: Product[], budget: number): Product[] {
-  const ordered = [...products].sort((a, b) => a.price - b.price);
+  const preferredOrder: Product['category'][] = [
+    'top',
+    'bottom',
+    'footwear',
+    'outerwear',
+    'accessory',
+  ];
+
+  const byCategory = preferredOrder
+    .map((category) => products.find((product) => product.category === category))
+    .filter((product): product is Product => Boolean(product));
+
   const picks: Product[] = [];
   let running = 0;
 
-  for (const product of ordered) {
+  for (const product of byCategory) {
     if (picks.length >= 3) break;
     if (running + product.price <= budget) {
       picks.push(product);
@@ -331,7 +342,8 @@ function selectProductsForBudget(products: Product[], budget: number): Product[]
   }
 
   if (picks.length < 2) {
-    return ordered.slice(0, Math.min(3, ordered.length));
+    const cheapest = [...products].sort((a, b) => a.price - b.price);
+    return cheapest.slice(0, Math.min(3, cheapest.length));
   }
 
   return picks;

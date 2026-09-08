@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import {
-  Pressable,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -33,7 +33,7 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
     <View style={styles.container}>
       <View style={styles.display}>
         <Text style={styles.displayLabel}>Selected budget</Text>
-        <Text style={styles.displayValue}>
+        <Text style={styles.displayValue} testID="budget-display">
           {value ? `$${value}` : '—'}
         </Text>
       </View>
@@ -42,26 +42,24 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
         {BUDGET_PRESETS.map((preset) => {
           const selected = value === preset && customText.length === 0;
           return (
-            <Pressable
+            <TouchableOpacity
               key={preset}
               accessibilityRole="button"
               accessibilityState={{ selected }}
+              activeOpacity={0.9}
               onPress={() => {
                 setCustomText('');
                 onChange(preset);
               }}
-              style={({ pressed }) => [
-                styles.preset,
-                selected && styles.presetSelected,
-                pressed && styles.pressed,
-              ]}
+              style={[styles.preset, selected && styles.presetSelected]}
+              testID={`budget-preset-${preset}`}
             >
               <Text
                 style={[styles.presetLabel, selected && styles.presetLabelSelected]}
               >
                 ${preset}
               </Text>
-            </Pressable>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -77,6 +75,7 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
             placeholder="Enter amount"
             placeholderTextColor={colors.textMuted}
             style={styles.input}
+            testID="budget-custom-input"
           />
         </View>
       </View>
@@ -129,9 +128,6 @@ const styles = StyleSheet.create({
   },
   presetLabelSelected: {
     fontFamily: 'DMSans_500Medium',
-  },
-  pressed: {
-    opacity: 0.9,
   },
   customWrap: {
     gap: spacing.sm,

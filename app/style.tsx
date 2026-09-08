@@ -19,6 +19,7 @@ export default function StyleScreen() {
       footer={
         <PrimaryButton
           label="Continue"
+          testID="btn-continue-style"
           disabled={!selectedStyle}
           onPress={() => router.push('/occasion')}
         />
