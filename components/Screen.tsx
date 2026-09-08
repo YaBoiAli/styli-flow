@@ -28,6 +28,7 @@ export function Screen({
 }: ScreenProps) {
   const body = scroll ? (
     <ScrollView
+      style={styles.scroll}
       contentContainerStyle={[styles.content, contentStyle]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
@@ -38,15 +39,25 @@ export function Screen({
     <View style={[styles.content, styles.fill, contentStyle]}>{children}</View>
   );
 
+  const content = (
+    <View style={styles.column}>
+      <View style={styles.body}>{body}</View>
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </View>
+  );
+
   return (
-    <SafeAreaView style={[styles.safe, style]} edges={['top', 'left', 'right', 'bottom']}>
-      <KeyboardAvoidingView
-        style={styles.fill}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        {body}
-        {footer ? <View style={styles.footer}>{footer}</View> : null}
-      </KeyboardAvoidingView>
+    <SafeAreaView
+      style={[styles.safe, style]}
+      edges={['top', 'left', 'right', 'bottom']}
+    >
+      {Platform.OS === 'ios' ? (
+        <KeyboardAvoidingView style={styles.fill} behavior="padding">
+          {content}
+        </KeyboardAvoidingView>
+      ) : (
+        content
+      )}
     </SafeAreaView>
   );
 }
@@ -59,6 +70,18 @@ const styles = StyleSheet.create({
   fill: {
     flex: 1,
   },
+  column: {
+    flex: 1,
+    minHeight: 0,
+  },
+  body: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+  },
+  scroll: {
+    flex: 1,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
@@ -66,6 +89,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   footer: {
+    zIndex: 20,
+    elevation: 8,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,

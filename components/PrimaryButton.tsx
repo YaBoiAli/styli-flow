@@ -1,6 +1,5 @@
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -33,14 +32,14 @@ export function PrimaryButton({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled: isDisabled }}
-      disabled={isDisabled}
+      // Keep receiving pointer events when visually disabled so web clicks
+      // do not fall through to content behind sticky footers.
+      disabled={false}
       onPress={() => {
         if (!isDisabled) {
           onPress();
         }
       }}
-      // RN Web can miss presses when transform is applied during press.
-      unstable_pressDelay={Platform.OS === 'web' ? 0 : undefined}
       style={({ pressed }) => [
         styles.base,
         variant === 'primary' && styles.primary,
