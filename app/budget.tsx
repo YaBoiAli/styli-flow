@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
@@ -7,6 +7,8 @@ import { BudgetSelector } from '@/components/BudgetSelector';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { FREE_GENERATION_LIMIT } from '@/constants/subscriptions';
 import { colors, spacing, typography } from '@/constants/theme';
 
 export default function BudgetScreen() {
@@ -17,6 +19,8 @@ export default function BudgetScreen() {
     selectedBudget,
     setBudget,
   } = usePreferences();
+  const { isPremium, checkCanGenerate, generationsRemaining } = useSubscription();
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!selectedStyle) {
@@ -28,16 +32,42 @@ export default function BudgetScreen() {
     }
   }, [selectedStyle, selectedOccasion, router]);
 
+  async function handleBuild() {
+    setChecking(true);
+    try {
+      const allowed = await checkCanGenerate();
+      if (!allowed) {
+        router.push('/paywall?redirect=/generation');
+        return;
+      }
+      router.push('/generation');
+    } finally {
+      setChecking(false);
+    }
+  }
+
   return (
     <Screen
       contentStyle={styles.content}
       footer={
-        <PrimaryButton
-          label="Build my fit"
-          testID="btn-build-fit"
-          disabled={!selectedBudget || selectedBudget <= 0}
-          onPress={() => router.push('/generation')}
-        />
+        <View style={styles.footer}>
+          {!isPremium ? (
+            <Text style={styles.quota} testID="generation-quota">
+              {generationsRemaining === Number.POSITIVE_INFINITY
+                ? 'Unlimited AI fits'
+                : `${Math.min(generationsRemaining, FREE_GENERATION_LIMIT)} of ${FREE_GENERATION_LIMIT} free fits left`}
+            </Text>
+          ) : (
+            <Text style={styles.quota}>Unlimited AI fits with Vibe Pro</Text>
+          )}
+          <PrimaryButton
+            label="Build my fit"
+            testID="btn-build-fit"
+            loading={checking}
+            disabled={!selectedBudget || selectedBudget <= 0}
+            onPress={() => void handleBuild()}
+          />
+        </View>
       }
     >
       <View style={styles.top}>
@@ -67,5 +97,13 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.subtitle,
     color: colors.textSecondary,
+  },
+  footer: {
+    gap: spacing.sm,
+  },
+  quota: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
 });

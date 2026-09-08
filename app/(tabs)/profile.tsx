@@ -11,6 +11,7 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { colors, radii, spacing, typography } from '@/constants/theme';
 import { fetchProfile } from '@/lib/profile';
 import type { Profile } from '@/types/database';
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading, signOut } = useAuth();
   const { selectedStyle, selectedOccasion, selectedBudget } = usePreferences();
+  const { isPremium, loading: subLoading } = useSubscription();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export default function ProfileScreen() {
     }, [load]),
   );
 
-  if (authLoading || loading) {
+  if (authLoading || loading || subLoading) {
     return (
       <Screen scroll={false} contentStyle={styles.centered}>
         <ActivityIndicator color={colors.text} />
@@ -127,9 +129,23 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Premium</Text>
-        <Text style={styles.value}>Free plan</Text>
-        <Text style={styles.hint}>Subscriptions come in a later stage.</Text>
+        <Text style={styles.label}>Plan</Text>
+        <Text style={styles.value} testID="plan-status">
+          {isPremium ? 'Vibe Pro' : 'Free Plan'}
+        </Text>
+        {!isPremium ? (
+          <>
+            <Text style={styles.hint}>
+              Unlock unlimited AI fits, premium styles, and rebuilds.
+            </Text>
+            <PrimaryButton
+              label="Upgrade to Vibe Pro"
+              onPress={() => router.push('/paywall?redirect=/profile')}
+            />
+          </>
+        ) : (
+          <Text style={styles.hint}>Unlimited generations and premium styles.</Text>
+        )}
       </View>
     </Screen>
   );

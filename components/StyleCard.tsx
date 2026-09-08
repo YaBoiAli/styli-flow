@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/constants/theme';
+import { isPremiumStyle } from '@/constants/subscriptions';
 import type { Style } from '@/types';
 
 type StyleCardProps = {
@@ -20,9 +21,15 @@ const styleHints: Record<Style, string> = {
   Formal: 'Sharp, elevated',
   'Clean Girl': 'Fresh, soft, sleek',
   Grunge: 'Raw, dark, textured',
+  Runway: 'Editorial, dramatic',
+  'Quiet Luxury': 'Soft power neutrals',
+  'Dark Academia': 'Scholarly, moody layers',
+  'Elevated Streetwear': 'Polished urban edge',
 };
 
 export function StyleCard({ styleName, selected, onPress }: StyleCardProps) {
+  const premium = isPremiumStyle(styleName);
+
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -32,7 +39,14 @@ export function StyleCard({ styleName, selected, onPress }: StyleCardProps) {
       style={[styles.card, selected && styles.cardSelected]}
       testID={`style-card-${styleName}`}
     >
-      <View style={[styles.swatch, selected && styles.swatchSelected]} />
+      <View style={styles.topRow}>
+        <View style={[styles.swatch, selected && styles.swatchSelected]} />
+        {premium ? (
+          <Text style={styles.premiumBadge} testID={`premium-badge-${styleName}`}>
+            Pro
+          </Text>
+        ) : null}
+      </View>
       <Text style={[styles.title, selected && styles.titleSelected]}>
         {styleName}
       </Text>
@@ -57,15 +71,32 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSelected,
     backgroundColor: colors.surfaceMuted,
   },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: spacing.sm,
+  },
   swatch: {
     width: 28,
     height: 28,
     borderRadius: radii.sm,
     backgroundColor: colors.accentSoft,
-    marginBottom: spacing.sm,
   },
   swatchSelected: {
     backgroundColor: colors.accent,
+  },
+  premiumBadge: {
+    ...typography.caption,
+    color: colors.background,
+    backgroundColor: colors.accent,
+    overflow: 'hidden',
+    borderRadius: radii.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    fontFamily: 'DMSans_500Medium',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   title: {
     ...typography.label,

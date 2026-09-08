@@ -136,6 +136,18 @@ export async function fetchSavedOutfits(): Promise<SavedOutfitSummary[]> {
   return ((data ?? []) as OutfitRow[]).map(mapSummary);
 }
 
+export async function countSavedOutfits(): Promise<number> {
+  const { count, error } = await getSupabase()
+    .from('outfits')
+    .select('id', { count: 'exact', head: true });
+
+  if (error) {
+    throw new Error("Couldn't check saved fits.");
+  }
+
+  return count ?? 0;
+}
+
 export async function fetchSavedOutfit(id: string): Promise<SavedOutfitDetail> {
   const { data, error } = await getSupabase()
     .from('outfits')

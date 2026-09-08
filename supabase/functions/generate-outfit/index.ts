@@ -65,6 +65,18 @@ function groupByCategory(products: Product[]): Record<ProductCategory, Product[]
   return groups;
 }
 
+/** Map UI styles (including premium) onto catalog style_tags. */
+function styleAliasTags(style: string): string[] {
+  const styleTag = normalizeTag(style);
+  const aliases: Record<string, string[]> = {
+    runway: ['formal', 'old money', 'y2k'],
+    'quiet luxury': ['old money', 'minimalist'],
+    'dark academia': ['preppy', 'grunge', 'formal'],
+    'elevated streetwear': ['streetwear', 'athleisure', 'minimalist'],
+  };
+  return [styleTag, ...(aliases[styleTag] ?? [])];
+}
+
 function filterCandidates(
   products: Product[],
   style: string,
@@ -72,13 +84,15 @@ function filterCandidates(
   budget: number,
   excludeIds: Set<string>,
 ): Product[] {
-  const styleTag = normalizeTag(style);
+  const styleTags = styleAliasTags(style);
   const occasionTag = normalizeTag(occasion);
 
   const styleMatched = products.filter((product) => {
     if (excludeIds.has(product.id)) return false;
     if (asNumber(product.price) > budget) return false;
-    return product.style_tags.some((tag) => normalizeTag(tag) === styleTag);
+    return product.style_tags.some((tag) =>
+      styleTags.includes(normalizeTag(tag)),
+    );
   });
 
   const occasionMatched = styleMatched.filter((product) =>
@@ -235,15 +249,21 @@ function heuristicOutfit(
   excludeIds: Set<string>,
   attempt: number,
 ): AiOutfit {
-  const styleTag = normalizeTag(style);
+  const styleTags = styleAliasTags(style);
   const grouped = groupByCategory(
     candidates.filter((product) => !excludeIds.has(product.id)),
   );
 
   const rank = (list: Product[]) =>
     [...list].sort((a, b) => {
-      const aPrimary = a.style_tags[0] && normalizeTag(a.style_tags[0]) === styleTag ? 0 : 1;
-      const bPrimary = b.style_tags[0] && normalizeTag(b.style_tags[0]) === styleTag ? 0 : 1;
+      const aPrimary =
+        a.style_tags[0] && styleTags.includes(normalizeTag(a.style_tags[0]))
+          ? 0
+          : 1;
+      const bPrimary =
+        b.style_tags[0] && styleTags.includes(normalizeTag(b.style_tags[0]))
+          ? 0
+          : 1;
       if (aPrimary !== bPrimary) return aPrimary - bPrimary;
       return asNumber(a.price) - asNumber(b.price);
     });

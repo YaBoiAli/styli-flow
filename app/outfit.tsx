@@ -8,8 +8,13 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { FREE_SAVE_LIMIT } from '@/constants/subscriptions';
 import { colors, spacing, typography } from '@/constants/theme';
-import { saveGeneratedOutfit } from '@/lib/savedOutfits';
+import {
+  countSavedOutfits,
+  saveGeneratedOutfit,
+} from '@/lib/savedOutfits';
 import { updateProfilePreferences } from '@/lib/profile';
 
 export default function OutfitScreen() {
@@ -23,6 +28,7 @@ export default function OutfitScreen() {
     prepareRebuild,
   } = usePreferences();
   const { isAuthenticated, user, setPendingSaveOutfit } = useAuth();
+  const { isPremium, checkCanGenerate } = useSubscription();
   const [saving, setSaving] = useState(false);
 
   if (!selectedStyle || !selectedOccasion || !selectedBudget) {
@@ -47,8 +53,22 @@ export default function OutfitScreen() {
             <PrimaryButton
               label="Try again"
               onPress={() => {
-                prepareRebuild();
-                router.replace('/generation');
+                void (async () => {
+                  const allowed = await checkCanGenerate();
+                  if (!allowed) {
+                    router.push('/paywall?redirect=/generation');
+                    return;
+                  }
+                  if (!isPremium) {
+                    // Rebuild is a premium feature; free users may retry once more
+                    // only if they still have generation quota and this was an error.
+                    prepareRebuild();
+                    router.replace('/generation');
+                    return;
+                  }
+                  prepareRebuild();
+                  router.replace('/generation');
+                })();
               }}
             />
             <PrimaryButton
@@ -88,6 +108,28 @@ export default function OutfitScreen() {
         ],
       );
       return;
+    }
+
+    if (!isPremium) {
+      try {
+        const savedCount = await countSavedOutfits();
+        if (savedCount >= FREE_SAVE_LIMIT) {
+          Alert.alert(
+            'Free save limit reached',
+            `Free Plan includes ${FREE_SAVE_LIMIT} saved outfits. Upgrade for unlimited saves.`,
+            [
+              { text: 'Not now', style: 'cancel' },
+              {
+                text: 'Upgrade',
+                onPress: () => router.push('/paywall?redirect=/outfit'),
+              },
+            ],
+          );
+          return;
+        }
+      } catch {
+        // If count fails, still attempt save and let backend enforce later.
+      }
     }
 
     setSaving(true);
@@ -143,8 +185,19 @@ export default function OutfitScreen() {
             label="Rebuild"
             variant="ghost"
             onPress={() => {
-              prepareRebuild();
-              router.replace('/generation');
+              if (!isPremium) {
+                router.push('/paywall?redirect=/outfit');
+                return;
+              }
+              void (async () => {
+                const allowed = await checkCanGenerate();
+                if (!allowed) {
+                  router.push('/paywall?redirect=/generation');
+                  return;
+                }
+                prepareRebuild();
+                router.replace('/generation');
+              })();
             }}
           />
         </View>

@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "${EXPO_PUBLIC_REVENUECAT_API_KEY}"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_API_KEY": "${EXPO_PUBLIC_REVENUECAT_API_KEY}"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "${EXPO_PUBLIC_REVENUECAT_IOS_API_KEY}",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY": "${EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY}"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

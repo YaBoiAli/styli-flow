@@ -14,6 +14,7 @@ import 'react-native-reanimated';
 
 import { AuthProvider } from '@/context/AuthContext';
 import { PreferencesProvider } from '@/context/PreferencesContext';
+import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { colors } from '@/constants/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -43,26 +44,29 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <PreferencesProvider>
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-            animation: 'fade_from_bottom',
-          }}
-        >
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="style" />
-          <Stack.Screen name="occasion" />
-          <Stack.Screen name="budget" />
-          <Stack.Screen name="generation" />
-          <Stack.Screen name="outfit" />
-          <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="saved/[id]" />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-      </PreferencesProvider>
+      <SubscriptionProvider>
+        <PreferencesProvider>
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+              animation: 'fade_from_bottom',
+            }}
+          >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="style" />
+            <Stack.Screen name="occasion" />
+            <Stack.Screen name="budget" />
+            <Stack.Screen name="generation" />
+            <Stack.Screen name="outfit" />
+            <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="saved/[id]" />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+        </PreferencesProvider>
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }

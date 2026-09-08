@@ -4,7 +4,9 @@ import { StyleSheet, View } from 'react-native';
 
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { Screen } from '@/components/Screen';
+import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { spacing } from '@/constants/theme';
 import {
   generateOutfit,
@@ -23,6 +25,7 @@ const STEP_MS = 900;
 
 export default function GenerationScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const {
     selectedStyle,
     selectedOccasion,
@@ -32,6 +35,7 @@ export default function GenerationScreen() {
     setGenerationError,
     clearGeneration,
   } = usePreferences();
+  const { checkCanGenerate, consumeGeneration, isPremium } = useSubscription();
   const [messageIndex, setMessageIndex] = useState(0);
   const startedRef = useRef(false);
 
@@ -64,6 +68,14 @@ export default function GenerationScreen() {
     async function run() {
       clearGeneration();
       try {
+        const allowed = await checkCanGenerate();
+        if (!allowed) {
+          if (!cancelled) {
+            router.replace('/paywall?redirect=/generation');
+          }
+          return;
+        }
+
         const outfit = await generateOutfit({
           style: selectedStyle!,
           occasion: selectedOccasion!,
@@ -71,6 +83,8 @@ export default function GenerationScreen() {
           excludeProductIds,
         });
         if (cancelled) return;
+
+        await consumeGeneration();
         setGeneratedOutfit(outfit);
         setGenerationError(null);
         router.replace('/outfit');
@@ -100,6 +114,10 @@ export default function GenerationScreen() {
     setGeneratedOutfit,
     setGenerationError,
     router,
+    checkCanGenerate,
+    consumeGeneration,
+    user?.id,
+    isPremium,
   ]);
 
   return (

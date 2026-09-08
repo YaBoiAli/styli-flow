@@ -7,6 +7,7 @@
     "@expo-google-fonts/syne": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@revenuecat/purchases-js": "^1.59.0",
     "@supabase/supabase-js": "^2.116.0",
     "bcryptjs": "^3.0.3",
     "expo": "~57.0.21",
@@ -23,6 +24,8 @@
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
+    "react-native-purchases": "^10.9.0",
+    "react-native-purchases-ui": "^10.9.0",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -48,6 +51,7 @@
     "db:verify": "node --env-file=.env scripts/verify-supabase.mjs",
     "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
     "test:auth": "node --env-file=.env scripts/test-auth-saved.mjs",
+    "test:subscription": "node --env-file=.env scripts/test-subscription.mjs",
     "fn:serve": "bash scripts/serve-generate-outfit.sh"
   },
   "private": true

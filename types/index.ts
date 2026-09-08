@@ -8,7 +8,11 @@ export type Style =
   | 'Casual'
   | 'Formal'
   | 'Clean Girl'
-  | 'Grunge';
+  | 'Grunge'
+  | 'Runway'
+  | 'Quiet Luxury'
+  | 'Dark Academia'
+  | 'Elevated Streetwear';
 
 export type Occasion =
   | 'Everyday'
@@ -67,6 +71,10 @@ export const STYLES: Style[] = [
   'Formal',
   'Clean Girl',
   'Grunge',
+  'Runway',
+  'Quiet Luxury',
+  'Dark Academia',
+  'Elevated Streetwear',
 ];
 
 export const OCCASIONS: Occasion[] = [

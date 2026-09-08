@@ -6,12 +6,23 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { StyleCard } from '@/components/StyleCard';
 import { usePreferences } from '@/context/PreferencesContext';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { isPremiumStyle } from '@/constants/subscriptions';
 import { colors, spacing, typography } from '@/constants/theme';
-import { STYLES } from '@/types';
+import { STYLES, type Style } from '@/types';
 
 export default function StyleScreen() {
   const router = useRouter();
   const { selectedStyle, setStyle } = usePreferences();
+  const { isPremium } = useSubscription();
+
+  function handleStylePress(styleName: Style) {
+    if (isPremiumStyle(styleName) && !isPremium) {
+      router.push('/paywall?redirect=/style');
+      return;
+    }
+    setStyle(styleName);
+  }
 
   return (
     <Screen
@@ -37,7 +48,7 @@ export default function StyleScreen() {
             <StyleCard
               styleName={styleName}
               selected={selectedStyle === styleName}
-              onPress={() => setStyle(styleName)}
+              onPress={() => handleStylePress(styleName)}
             />
           </View>
         ))}

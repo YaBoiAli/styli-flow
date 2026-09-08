@@ -38,6 +38,10 @@ const outfitNames: Record<Style, string> = {
   Formal: 'Evening Tailored',
   'Clean Girl': 'Clean Girl Soft',
   Grunge: 'After Dark Grunge',
+  Runway: 'Runway Statement Edit',
+  'Quiet Luxury': 'Quiet Luxury Layer',
+  'Dark Academia': 'Library Hours Set',
+  'Elevated Streetwear': 'Elevated Street Edit',
 };
 
 const explanations: Record<Style, string> = {
@@ -56,6 +60,14 @@ const explanations: Record<Style, string> = {
   'Clean Girl':
     'Soft textures, simple jewelry, and airy silhouettes for that polished everyday glow.',
   Grunge: 'Worn-in textures and darker pieces build attitude without overdoing it.',
+  Runway:
+    'Bold proportions and statement pieces make this look feel editorial without tipping into costume.',
+  'Quiet Luxury':
+    'Soft power neutrals and refined textures keep everything expensive-looking without logos.',
+  'Dark Academia':
+    'Moody layers and scholarly textures build a thoughtful, bookish silhouette.',
+  'Elevated Streetwear':
+    'Street energy with cleaner lines and polished finishes for a sharper urban look.',
 };
 
 function roundPrice(value: number): number {
