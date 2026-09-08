@@ -6,7 +6,7 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { colors, spacing, typography } from '@/constants/theme';
 
-export default function WelcomeScreen() {
+export default function HomeScreen() {
   const router = useRouter();
 
   return (

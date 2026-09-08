@@ -5,60 +5,38 @@ Your AI stylist, in your pocket.
 ## Stack
 
 - React Native + Expo + TypeScript + Expo Router
-- Supabase (Postgres + Edge Functions)
+- Supabase (Postgres, Auth, Edge Functions)
 - OpenAI (server-side only via Edge Function)
 
 ## Stage status
 
 - Stage 1: Onboarding UI
-- Stage 2: Supabase catalog
-- **Stage 3: AI outfit generation via `generate-outfit` Edge Function**
-- Not yet: auth UI, RevenueCat, OneSignal, PostHog
+- Stage 2: Product catalog
+- Stage 3: AI outfit generation
+- **Stage 4: Auth + saved outfits**
+- Not yet: RevenueCat / Premium billing
 
-## Security
+## App flow
 
-The OpenAI API key never ships in the mobile app.
+- Generate outfits without signing in
+- Sign in required to save
+- Tabs: **Home · Saved · Profile**
+- Onboarding screens unchanged (Style → Occasion → Budget → Generation → Results)
 
-Flow:
-
-`iOS/App → Supabase Edge Function generate-outfit → OpenAI → Supabase products → App`
-
-## Run the app
+## Run
 
 ```bash
 cp .env.example .env
-# set EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
-# set OPENAI_API_KEY as a Supabase Edge Function secret (not in the app)
-
 npm install
 npx expo start
 ```
 
-## Deploy Edge Function
+## Auth + save notes
+
+- Email/password via Supabase Auth
+- Saved rows go to `outfits` + `outfit_items`
+- Profile shows email, preferences, premium placeholder, sign out
 
 ```bash
-# From a machine with Supabase CLI + project linked:
-supabase secrets set OPENAI_API_KEY=sk-...
-supabase functions deploy generate-outfit
+npm run test:auth
 ```
-
-SQL (Stage 2) must already be applied and seeded.
-
-## Local Stage 3 services (optional)
-
-```bash
-# PostgREST + proxy + function (see scripts/)
-bash scripts/serve-generate-outfit.sh
-node scripts/local-supabase-proxy.mjs
-npm run db:verify
-npm run test:generate
-```
-
-`ALLOW_HEURISTIC_FALLBACK=true` enables a budget-safe local fallback when `OPENAI_API_KEY` is unset. Production should set a real OpenAI key and keep the fallback off.
-
-## Onboarding flow
-
-1. Welcome → Style → Occasion → Budget
-2. **Build my fit** → Generation animation while Edge Function runs
-3. Results show AI outfit (name, products, DB prices, reasons, tip)
-4. **Rebuild** requests a different combination with the same preferences

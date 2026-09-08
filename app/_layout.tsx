@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
+import { AuthProvider } from '@/context/AuthContext';
 import { PreferencesProvider } from '@/context/PreferencesContext';
 import { colors } from '@/constants/theme';
 
@@ -41,23 +42,27 @@ export default function RootLayout() {
   }
 
   return (
-    <PreferencesProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-          animation: 'fade_from_bottom',
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="style" />
-        <Stack.Screen name="occasion" />
-        <Stack.Screen name="budget" />
-        <Stack.Screen name="generation" />
-        <Stack.Screen name="outfit" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-    </PreferencesProvider>
+    <AuthProvider>
+      <PreferencesProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            animation: 'fade_from_bottom',
+          }}
+        >
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="style" />
+          <Stack.Screen name="occasion" />
+          <Stack.Screen name="budget" />
+          <Stack.Screen name="generation" />
+          <Stack.Screen name="outfit" />
+          <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="saved/[id]" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </PreferencesProvider>
+    </AuthProvider>
   );
 }

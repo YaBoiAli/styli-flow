@@ -8,6 +8,7 @@
     "@expo/vector-icons": "^15.0.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.116.0",
+    "bcryptjs": "^3.0.3",
     "expo": "~57.0.21",
     "expo-constants": "~57.0.17",
     "expo-font": "~57.0.3",
@@ -17,6 +18,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.2",
     "expo-web-browser": "~57.0.2",
+    "pg": "^8.23.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
@@ -29,6 +31,7 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/react": "~19.2.2",
     "dotenv": "^17.4.2",
     "jose": "^6.2.12",
@@ -44,6 +47,7 @@
     "db:seed": "node --env-file=.env scripts/seed-products.mjs",
     "db:verify": "node --env-file=.env scripts/verify-supabase.mjs",
     "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
+    "test:auth": "node --env-file=.env scripts/test-auth-saved.mjs",
     "fn:serve": "bash scripts/serve-generate-outfit.sh"
   },
   "private": true
