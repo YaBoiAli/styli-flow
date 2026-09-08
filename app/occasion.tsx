@@ -21,7 +21,16 @@ export default function OccasionScreen() {
   }, [selectedStyle, router]);
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen
+      contentStyle={styles.content}
+      footer={
+        <PrimaryButton
+          label="Continue"
+          disabled={!selectedOccasion}
+          onPress={() => router.push('/budget')}
+        />
+      }
+    >
       <View style={styles.top}>
         <BackButton fallbackHref="/style" />
         <Text style={styles.title}>What&apos;s the occasion?</Text>
@@ -41,12 +50,6 @@ export default function OccasionScreen() {
           </View>
         ))}
       </View>
-
-      <PrimaryButton
-        label="Continue"
-        disabled={!selectedOccasion}
-        onPress={() => router.push('/budget')}
-      />
     </Screen>
   );
 }

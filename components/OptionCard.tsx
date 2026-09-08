@@ -42,7 +42,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.92,
-    transform: [{ scale: 0.985 }],
   },
   label: {
     ...typography.label,

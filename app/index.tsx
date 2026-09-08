@@ -10,7 +10,16 @@ export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <Screen scroll={false} contentStyle={styles.content}>
+    <Screen
+      scroll={false}
+      contentStyle={styles.content}
+      footer={
+        <PrimaryButton
+          label="Get Started"
+          onPress={() => router.push('/style')}
+        />
+      }
+    >
       <View style={styles.hero}>
         <Animated.Text entering={FadeInDown.duration(700)} style={styles.brand}>
           Styli
@@ -28,25 +37,15 @@ export default function WelcomeScreen() {
           Pick a vibe. Set a budget. Get a fit that feels like you.
         </Animated.Text>
       </View>
-
-      <Animated.View entering={FadeInUp.delay(480).duration(700)}>
-        <PrimaryButton
-          label="Get Started"
-          onPress={() => router.push('/style')}
-        />
-      </Animated.View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    justifyContent: 'space-between',
-    paddingBottom: spacing.xxl,
+    justifyContent: 'center',
   },
   hero: {
-    flex: 1,
-    justifyContent: 'center',
     gap: spacing.lg,
     paddingTop: spacing.xxl,
   },

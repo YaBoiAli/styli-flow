@@ -13,6 +13,7 @@ import { colors, spacing } from '@/constants/theme';
 
 type ScreenProps = {
   children: ReactNode;
+  footer?: ReactNode;
   scroll?: boolean;
   style?: ViewStyle;
   contentStyle?: ViewStyle;
@@ -20,6 +21,7 @@ type ScreenProps = {
 
 export function Screen({
   children,
+  footer,
   scroll = true,
   style,
   contentStyle,
@@ -37,12 +39,13 @@ export function Screen({
   );
 
   return (
-    <SafeAreaView style={[styles.safe, style]} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={[styles.safe, style]} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {body}
+        {footer ? <View style={styles.footer}>{footer}</View> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -59,7 +62,16 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
     paddingTop: spacing.md,
+  },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
   },
 });

@@ -1,43 +1,55 @@
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
-  type PressableProps,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/constants/theme';
 
-type PrimaryButtonProps = PressableProps & {
+type PrimaryButtonProps = {
   label: string;
+  onPress: () => void;
   loading?: boolean;
+  disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'ghost';
+  style?: StyleProp<ViewStyle>;
 };
 
 export function PrimaryButton({
   label,
+  onPress,
   loading = false,
   variant = 'primary',
-  disabled,
+  disabled = false,
   style,
-  ...props
 }: PrimaryButtonProps) {
-  const isDisabled = Boolean(disabled || loading);
+  const isDisabled = disabled || loading;
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled }}
       disabled={isDisabled}
-      style={(state) => [
+      onPress={() => {
+        if (!isDisabled) {
+          onPress();
+        }
+      }}
+      // RN Web can miss presses when transform is applied during press.
+      unstable_pressDelay={Platform.OS === 'web' ? 0 : undefined}
+      style={({ pressed }) => [
         styles.base,
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'ghost' && styles.ghost,
-        state.pressed && !isDisabled && styles.pressed,
+        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
-        typeof style === 'function' ? style(state) : style,
+        style,
       ]}
-      {...props}
     >
       {loading ? (
         <ActivityIndicator
@@ -66,7 +78,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-  },
+    },
   primary: {
     backgroundColor: colors.accent,
   },
@@ -80,7 +92,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.88,
-    transform: [{ scale: 0.985 }],
   },
   disabled: {
     opacity: 0.4,

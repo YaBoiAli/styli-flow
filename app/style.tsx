@@ -14,7 +14,16 @@ export default function StyleScreen() {
   const { selectedStyle, setStyle } = usePreferences();
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen
+      contentStyle={styles.content}
+      footer={
+        <PrimaryButton
+          label="Continue"
+          disabled={!selectedStyle}
+          onPress={() => router.push('/occasion')}
+        />
+      }
+    >
       <View style={styles.top}>
         <BackButton />
         <Text style={styles.title}>What&apos;s your vibe?</Text>
@@ -32,12 +41,6 @@ export default function StyleScreen() {
           </View>
         ))}
       </View>
-
-      <PrimaryButton
-        label="Continue"
-        disabled={!selectedStyle}
-        onPress={() => router.push('/occasion')}
-      />
     </Screen>
   );
 }

@@ -28,41 +28,48 @@ export default function OutfitScreen() {
 
   if (!outfit) {
     return (
-      <Screen contentStyle={styles.content}>
+      <Screen
+        contentStyle={styles.content}
+        footer={
+          <PrimaryButton label="Start over" onPress={() => router.replace('/')} />
+        }
+      >
         <BackButton fallbackHref="/" />
-        <PrimaryButton label="Start over" onPress={() => router.replace('/')} />
       </Screen>
     );
   }
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen
+      contentStyle={styles.content}
+      footer={
+        <View style={styles.actions}>
+          <PrimaryButton
+            label="Shop this fit"
+            onPress={() =>
+              Alert.alert('Coming soon', 'Shopping links land in a later stage.')
+            }
+          />
+          <PrimaryButton
+            label="♡ Save"
+            variant="secondary"
+            onPress={() =>
+              Alert.alert('Saved', 'Outfit saved locally for now (placeholder).')
+            }
+          />
+          <PrimaryButton
+            label="Rebuild"
+            variant="ghost"
+            onPress={() => {
+              resetPreferences();
+              router.replace('/style');
+            }}
+          />
+        </View>
+      }
+    >
       <BackButton fallbackHref="/budget" />
       <OutfitCard outfit={outfit} />
-
-      <View style={styles.actions}>
-        <PrimaryButton
-          label="Shop this fit"
-          onPress={() =>
-            Alert.alert('Coming soon', 'Shopping links land in a later stage.')
-          }
-        />
-        <PrimaryButton
-          label="♡ Save"
-          variant="secondary"
-          onPress={() =>
-            Alert.alert('Saved', 'Outfit saved locally for now (placeholder).')
-          }
-        />
-        <PrimaryButton
-          label="Rebuild"
-          variant="ghost"
-          onPress={() => {
-            resetPreferences();
-            router.replace('/style');
-          }}
-        />
-      </View>
     </Screen>
   );
 }
@@ -73,6 +80,5 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.sm,
-    paddingBottom: spacing.md,
   },
 });

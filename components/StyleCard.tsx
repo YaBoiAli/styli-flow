@@ -61,7 +61,6 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.92,
-    transform: [{ scale: 0.98 }],
   },
   swatch: {
     width: 28,

@@ -29,7 +29,16 @@ export default function BudgetScreen() {
   }, [selectedStyle, selectedOccasion, router]);
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen
+      contentStyle={styles.content}
+      footer={
+        <PrimaryButton
+          label="Build my fit"
+          disabled={!selectedBudget || selectedBudget <= 0}
+          onPress={() => router.push('/generation')}
+        />
+      }
+    >
       <View style={styles.top}>
         <BackButton fallbackHref="/occasion" />
         <Text style={styles.title}>What&apos;s your budget?</Text>
@@ -39,12 +48,6 @@ export default function BudgetScreen() {
       </View>
 
       <BudgetSelector value={selectedBudget} onChange={setBudget} />
-
-      <PrimaryButton
-        label="Build my fit"
-        disabled={!selectedBudget || selectedBudget <= 0}
-        onPress={() => router.push('/generation')}
-      />
     </Screen>
   );
 }
