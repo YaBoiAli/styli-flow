@@ -20,6 +20,7 @@ export type Occasion =
   | 'Event'
   | 'Night Out';
 
+/** UI/display product shape used by existing screens/components. */
 export type Product = {
   id: string;
   name: string;
@@ -28,6 +29,7 @@ export type Product = {
   category: 'top' | 'bottom' | 'footwear' | 'outerwear' | 'accessory';
 };
 
+/** UI/display outfit shape used by existing screens/components. */
 export type Outfit = {
   id: string;
   name: string;
@@ -43,6 +45,14 @@ export type UserPreferences = {
   selectedOccasion: Occasion | null;
   selectedBudget: number | null;
 };
+
+export type {
+  Product as DbProduct,
+  Profile,
+  Outfit as DbOutfit,
+  OutfitItem,
+  ProductCategory,
+} from '@/types/database';
 
 export const STYLES: Style[] = [
   'Streetwear',

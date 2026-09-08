@@ -1,0 +1,2777 @@
+[
+  {
+    "id": "7f3f97c3-60f8-4deb-9de6-82fc7438986b",
+    "name": "Black Oversized Graphic Tee",
+    "brand": "Aether",
+    "category": "top",
+    "price": 18,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/top/1",
+    "style_tags": [
+      "streetwear",
+      "y2k"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "8cf2d152-087f-43c6-82ff-1d147e94090b",
+    "name": "Olive Boxy Hoodie",
+    "brand": "Noir Lane",
+    "category": "top",
+    "price": 35,
+    "color": "Olive",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/top/2",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "280a1b60-81d2-4b4b-8784-286b754c32d8",
+    "name": "Graphite Tech Fleece Crew",
+    "brand": "Soft Form",
+    "category": "top",
+    "price": 52,
+    "color": "Graphite",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/top/3",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "311866cd-d0b9-47b1-b05d-409538085ee8",
+    "name": "Bone Drop-Shoulder Jersey",
+    "brand": "Civic Thread",
+    "category": "top",
+    "price": 69,
+    "color": "Bone",
+    "image_url": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/top/4",
+    "style_tags": [
+      "streetwear",
+      "y2k"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "cfefd0dc-65df-4edf-983e-53d795b37951",
+    "name": "Graphite Relaxed Cargo Pants",
+    "brand": "Aether",
+    "category": "bottom",
+    "price": 32,
+    "color": "Graphite",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/bottom/11",
+    "style_tags": [
+      "streetwear",
+      "y2k"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "d80f43c1-7912-4969-9fc4-1f8c3f58c280",
+    "name": "Bone Baggy Denim",
+    "brand": "Noir Lane",
+    "category": "bottom",
+    "price": 49,
+    "color": "Bone",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/bottom/12",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "9618f0fb-7ed8-4128-be97-bae6949db66d",
+    "name": "Black Parachute Pants",
+    "brand": "Soft Form",
+    "category": "bottom",
+    "price": 66,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/bottom/13",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "298b193a-ff16-4365-b9ff-0bcd1694ecaf",
+    "name": "Olive Wide Track Pants",
+    "brand": "Civic Thread",
+    "category": "bottom",
+    "price": 83,
+    "color": "Olive",
+    "image_url": "https://images.unsplash.com/photo-1542272454315-4c01d7ab1324?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/bottom/14",
+    "style_tags": [
+      "streetwear",
+      "y2k"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "227bca47-bf0b-4265-908f-c5cd60fb5104",
+    "name": "Black Chunky Sneakers",
+    "brand": "Aether",
+    "category": "shoes",
+    "price": 46,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/shoes/21",
+    "style_tags": [
+      "streetwear",
+      "y2k"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "6e3c30e0-2013-4126-80fc-d7d8f700ee5d",
+    "name": "Olive Skate Lows",
+    "brand": "Noir Lane",
+    "category": "shoes",
+    "price": 63,
+    "color": "Olive",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/shoes/22",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "2d7d92c3-d840-41e3-9323-b5d8d35cf2a7",
+    "name": "Graphite High-Top Trainers",
+    "brand": "Soft Form",
+    "category": "shoes",
+    "price": 80,
+    "color": "Graphite",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/shoes/23",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "c7a9bbae-a3e5-40a9-a5a3-614390f95915",
+    "name": "Graphite Utility Windbreaker",
+    "brand": "Aether",
+    "category": "outerwear",
+    "price": 60,
+    "color": "Graphite",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/outerwear/31",
+    "style_tags": [
+      "streetwear",
+      "y2k"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "a3dbc556-07f4-43e0-a93e-f36b900491e3",
+    "name": "Bone Oversized Bomber",
+    "brand": "Noir Lane",
+    "category": "outerwear",
+    "price": 77,
+    "color": "Bone",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/outerwear/32",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "bb3216b8-2259-4623-b4d2-36f7a7216918",
+    "name": "Black Graphic Cap",
+    "brand": "Aether",
+    "category": "accessory",
+    "price": 74,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/accessory/41",
+    "style_tags": [
+      "streetwear",
+      "y2k"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "82fffc97-91ad-4017-b4bc-3ee542653942",
+    "name": "Olive Crossbody Sling",
+    "brand": "Noir Lane",
+    "category": "accessory",
+    "price": 91,
+    "color": "Olive",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/accessory/42",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "cecfcf7a-91e6-498b-93f7-459cf2287cd0",
+    "name": "Graphite Beanie",
+    "brand": "Soft Form",
+    "category": "accessory",
+    "price": 30,
+    "color": "Graphite",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/streetwear/accessory/43",
+    "style_tags": [
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "party"
+    ]
+  },
+  {
+    "id": "867d25c3-dfba-4bb3-bd14-1a606ece32c1",
+    "name": "Hot Pink Baby Tee",
+    "brand": "Civic Thread",
+    "category": "top",
+    "price": 14,
+    "color": "Hot Pink",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/top/1",
+    "style_tags": [
+      "y2k",
+      "old money"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "1d85beb3-e425-4a70-ae0b-9c0174afc5de",
+    "name": "Silver Halter Crop",
+    "brand": "Lumen",
+    "category": "top",
+    "price": 31,
+    "color": "Silver",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/top/2",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date",
+      "event"
+    ]
+  },
+  {
+    "id": "a29aec4b-177f-4c1a-a1a7-6cda98ad3287",
+    "name": "Lilac Mesh Long Sleeve",
+    "brand": "Ridge & Co",
+    "category": "top",
+    "price": 48,
+    "color": "Lilac",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/top/3",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "9b7c0836-3d1b-4773-8757-ad933cc882cf",
+    "name": "White Butterfly Tank",
+    "brand": "Velvet Arc",
+    "category": "top",
+    "price": 65,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/top/4",
+    "style_tags": [
+      "y2k",
+      "old money"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date",
+      "event"
+    ]
+  },
+  {
+    "id": "6c776f37-3e00-4068-8c95-c81aa3d67fa7",
+    "name": "Lilac Low-Rise Micro Skirt",
+    "brand": "Civic Thread",
+    "category": "bottom",
+    "price": 34,
+    "color": "Lilac",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/bottom/11",
+    "style_tags": [
+      "y2k",
+      "old money"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "567b6fa5-c869-4d6c-8cb2-922677e42acc",
+    "name": "White Cargo Mini",
+    "brand": "Lumen",
+    "category": "bottom",
+    "price": 51,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/bottom/12",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date",
+      "event"
+    ]
+  },
+  {
+    "id": "24d1b5ec-c5d2-4a7a-ae89-501e9d50af9d",
+    "name": "Hot Pink Flare Denim",
+    "brand": "Ridge & Co",
+    "category": "bottom",
+    "price": 68,
+    "color": "Hot Pink",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/bottom/13",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "5c5a785b-84dd-4b97-9b70-7e8c14b2e001",
+    "name": "Silver Shiny Capris",
+    "brand": "Velvet Arc",
+    "category": "bottom",
+    "price": 85,
+    "color": "Silver",
+    "image_url": "https://images.unsplash.com/photo-1542272454315-4c01d7ab1324?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/bottom/14",
+    "style_tags": [
+      "y2k",
+      "old money"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date",
+      "event"
+    ]
+  },
+  {
+    "id": "0781b1ce-f3f4-4f92-8257-de661a14c16a",
+    "name": "Hot Pink Platform Sandals",
+    "brand": "Civic Thread",
+    "category": "shoes",
+    "price": 54,
+    "color": "Hot Pink",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/shoes/21",
+    "style_tags": [
+      "y2k",
+      "old money"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "7b3c89b3-5132-4c66-9da3-0a475990487f",
+    "name": "Silver Chunky Mary Janes",
+    "brand": "Lumen",
+    "category": "shoes",
+    "price": 71,
+    "color": "Silver",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/shoes/22",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date",
+      "event"
+    ]
+  },
+  {
+    "id": "43224767-e49f-41b2-8f86-c3543aaa01dd",
+    "name": "Lilac Metallic Sneakers",
+    "brand": "Ridge & Co",
+    "category": "shoes",
+    "price": 88,
+    "color": "Lilac",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/shoes/23",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "19385c39-8fc6-469a-b17b-8ca4e20f8c3d",
+    "name": "Lilac Faux Fur Shrug",
+    "brand": "Civic Thread",
+    "category": "outerwear",
+    "price": 74,
+    "color": "Lilac",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/outerwear/31",
+    "style_tags": [
+      "y2k",
+      "old money"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "d7f05b7a-04ce-4b35-b730-c948335c87dd",
+    "name": "White Cropped Puffer",
+    "brand": "Lumen",
+    "category": "outerwear",
+    "price": 16,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/outerwear/32",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date",
+      "event"
+    ]
+  },
+  {
+    "id": "8e638c6f-478b-4757-aaf3-f5c1674b9f05",
+    "name": "Hot Pink Tiny Shoulder Bag",
+    "brand": "Civic Thread",
+    "category": "accessory",
+    "price": 19,
+    "color": "Hot Pink",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/accessory/41",
+    "style_tags": [
+      "y2k",
+      "old money"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "d14bd0dc-617a-4b49-bcf3-5df8c4e8fdfe",
+    "name": "Silver Star Choker",
+    "brand": "Lumen",
+    "category": "accessory",
+    "price": 36,
+    "color": "Silver",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/accessory/42",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date",
+      "event"
+    ]
+  },
+  {
+    "id": "80c70016-d227-476d-8c16-941404bdc679",
+    "name": "Lilac Tinted Mini Specs",
+    "brand": "Ridge & Co",
+    "category": "accessory",
+    "price": 53,
+    "color": "Lilac",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/y2k/accessory/43",
+    "style_tags": [
+      "y2k"
+    ],
+    "occasion_tags": [
+      "party",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "5737a13a-5b86-4079-bb9a-07958b457240",
+    "name": "Camel Cashmere Crew Knit",
+    "brand": "Pulse Wear",
+    "category": "top",
+    "price": 42,
+    "color": "Camel",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/top/1",
+    "style_tags": [
+      "old money",
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "438a7dd9-1047-43c8-9dd1-80ea0bc74824",
+    "name": "Ivory Silk Button-Down",
+    "brand": "Aether",
+    "category": "top",
+    "price": 59,
+    "color": "Ivory",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/top/2",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "2c7e59af-a44a-47e0-80fd-8b348d6b8d73",
+    "name": "Navy Fine Merino Polo",
+    "brand": "Noir Lane",
+    "category": "top",
+    "price": 76,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/top/3",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "3d12f428-ecc9-4ed0-93bf-7fe9a8e71a89",
+    "name": "Forest Cable Knit Vest",
+    "brand": "Soft Form",
+    "category": "top",
+    "price": 93,
+    "color": "Forest",
+    "image_url": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/top/4",
+    "style_tags": [
+      "old money",
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "76a65f3e-662b-4536-843c-4921d5f93629",
+    "name": "Navy Tailored Trousers",
+    "brand": "Pulse Wear",
+    "category": "bottom",
+    "price": 103,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/bottom/11",
+    "style_tags": [
+      "old money",
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "b3994e38-874c-4793-bbe5-7b5db2d13a90",
+    "name": "Forest Pleated Wool Pants",
+    "brand": "Aether",
+    "category": "bottom",
+    "price": 120,
+    "color": "Forest",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/bottom/12",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "93388689-1c1b-48aa-ab5c-d81744fd475b",
+    "name": "Camel High-Rise Chinos",
+    "brand": "Noir Lane",
+    "category": "bottom",
+    "price": 137,
+    "color": "Camel",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/bottom/13",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "94606fe0-4c34-4b37-a475-0dd3f1bcdc15",
+    "name": "Camel Leather Loafers",
+    "brand": "Pulse Wear",
+    "category": "shoes",
+    "price": 55,
+    "color": "Camel",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/shoes/21",
+    "style_tags": [
+      "old money",
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "17f4ab89-dc97-465b-8838-8ba1891e750d",
+    "name": "Ivory Suede Horsebit",
+    "brand": "Aether",
+    "category": "shoes",
+    "price": 72,
+    "color": "Ivory",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/shoes/22",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "805baad5-4eb6-4931-8548-4b368aabe6a6",
+    "name": "Navy Cap-Toe Oxfords",
+    "brand": "Noir Lane",
+    "category": "shoes",
+    "price": 89,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/shoes/23",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "abbdec5e-2579-491d-b33a-d5f02d634703",
+    "name": "Navy Camel Overcoat",
+    "brand": "Pulse Wear",
+    "category": "outerwear",
+    "price": 116,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/outerwear/31",
+    "style_tags": [
+      "old money",
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "a1f90b34-2017-4d61-ac55-a2db0e9edb48",
+    "name": "Forest Structured Blazer",
+    "brand": "Aether",
+    "category": "outerwear",
+    "price": 133,
+    "color": "Forest",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/outerwear/32",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "cf2288a4-62ab-4901-a1eb-b875b0952fc2",
+    "name": "Camel Silk Scarf",
+    "brand": "Pulse Wear",
+    "category": "accessory",
+    "price": 68,
+    "color": "Camel",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/accessory/41",
+    "style_tags": [
+      "old money",
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "7e60ae1a-7599-4e6e-ab5a-6d1e259a1611",
+    "name": "Ivory Leather Belt",
+    "brand": "Aether",
+    "category": "accessory",
+    "price": 85,
+    "color": "Ivory",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/accessory/42",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "455f4464-2782-4972-ad6b-df600bd818a8",
+    "name": "Navy Gold Signet",
+    "brand": "Noir Lane",
+    "category": "accessory",
+    "price": 102,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/old-money/accessory/43",
+    "style_tags": [
+      "old money"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "date"
+    ]
+  },
+  {
+    "id": "3ca0a47b-b079-42f8-8f4d-e2b9f3bd6e27",
+    "name": "White Soft Boxy Tee",
+    "brand": "Aether",
+    "category": "top",
+    "price": 20,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/top/1",
+    "style_tags": [
+      "minimalist",
+      "preppy"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "6aebbf89-cd27-49c2-ac4d-00184d5dde9f",
+    "name": "Stone Relaxed Oxford",
+    "brand": "Noir Lane",
+    "category": "top",
+    "price": 37,
+    "color": "Stone",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/top/2",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "d78ef80c-aa94-4f35-8c10-6d37933ce70d",
+    "name": "Black Seamless Tank",
+    "brand": "Soft Form",
+    "category": "top",
+    "price": 54,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/top/3",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "165bccd0-15aa-49ac-a68f-4b7b34568738",
+    "name": "Taupe Clean Mock Neck",
+    "brand": "Civic Thread",
+    "category": "top",
+    "price": 71,
+    "color": "Taupe",
+    "image_url": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/top/4",
+    "style_tags": [
+      "minimalist",
+      "preppy"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "7695a598-5af5-4fe1-ac2a-acf4a6050c3c",
+    "name": "Black Wide Leg Trousers",
+    "brand": "Aether",
+    "category": "bottom",
+    "price": 89,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/bottom/11",
+    "style_tags": [
+      "minimalist",
+      "preppy"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "82c253dd-0bfb-4b67-b810-ccdb1e208943",
+    "name": "Taupe Straight Soft Denim",
+    "brand": "Noir Lane",
+    "category": "bottom",
+    "price": 106,
+    "color": "Taupe",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/bottom/12",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "cd2137e6-6a66-4e8c-b728-0ab5e2bb3d4b",
+    "name": "White Column Pants",
+    "brand": "Soft Form",
+    "category": "bottom",
+    "price": 22,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/bottom/13",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "8df6c1c0-1b09-4b6d-aa84-069a70109107",
+    "name": "White Clean Leather Sneakers",
+    "brand": "Aether",
+    "category": "shoes",
+    "price": 57,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/shoes/21",
+    "style_tags": [
+      "minimalist",
+      "preppy"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "5e8b7bdb-040c-4e54-8e1f-4f45ad1d49df",
+    "name": "Stone Minimal Slip-Ons",
+    "brand": "Noir Lane",
+    "category": "shoes",
+    "price": 74,
+    "color": "Stone",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/shoes/22",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "5338c4c1-b4a3-4364-95af-fa67d956d6eb",
+    "name": "Black Soft Ballet Flats",
+    "brand": "Soft Form",
+    "category": "shoes",
+    "price": 91,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/shoes/23",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "c43d9574-2380-426c-816b-4e09ce72d63d",
+    "name": "Black Unlined Overshirt",
+    "brand": "Aether",
+    "category": "outerwear",
+    "price": 25,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/outerwear/31",
+    "style_tags": [
+      "minimalist",
+      "preppy"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "990a79a9-5f06-4e25-a651-46923448a142",
+    "name": "Taupe Longline Wool Coat",
+    "brand": "Noir Lane",
+    "category": "outerwear",
+    "price": 42,
+    "color": "Taupe",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/outerwear/32",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "d843aff5-1205-4c02-9be6-52f746516f68",
+    "name": "White Slim Leather Tote",
+    "brand": "Aether",
+    "category": "accessory",
+    "price": 94,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/accessory/41",
+    "style_tags": [
+      "minimalist",
+      "preppy"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "11247ceb-c896-449c-ac00-ccd02d92e586",
+    "name": "Stone Matte Hoops",
+    "brand": "Noir Lane",
+    "category": "accessory",
+    "price": 111,
+    "color": "Stone",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/accessory/42",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "b293cafb-722d-44fa-8622-d22375ddfcb7",
+    "name": "Black Canvas Cap",
+    "brand": "Soft Form",
+    "category": "accessory",
+    "price": 27,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/minimalist/accessory/43",
+    "style_tags": [
+      "minimalist"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "work",
+      "vacation"
+    ]
+  },
+  {
+    "id": "3309c5c4-093a-418d-9a07-8e768ad38372",
+    "name": "Navy Oxford Button-Down",
+    "brand": "Velvet Arc",
+    "category": "top",
+    "price": 22,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/top/1",
+    "style_tags": [
+      "preppy",
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "8356c0c1-0032-4dfa-b8dc-981b0c4a98bb",
+    "name": "Cream Striped Rugby",
+    "brand": "Studio Nine",
+    "category": "top",
+    "price": 39,
+    "color": "Cream",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/top/2",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday",
+      "event"
+    ]
+  },
+  {
+    "id": "4c15761b-9716-4290-82d6-aaec3a71184f",
+    "name": "Burgundy Cable Sweater",
+    "brand": "Harbor Knit",
+    "category": "top",
+    "price": 56,
+    "color": "Burgundy",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/top/3",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "d18afada-ea34-46c3-a0b4-18ddb2836e97",
+    "name": "Sky Piqué Polo",
+    "brand": "Pulse Wear",
+    "category": "top",
+    "price": 73,
+    "color": "Sky",
+    "image_url": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/top/4",
+    "style_tags": [
+      "preppy",
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday",
+      "event"
+    ]
+  },
+  {
+    "id": "a5c27c72-7c6e-48e3-b611-0e73bf8bc159",
+    "name": "Burgundy Pleated Chinos",
+    "brand": "Velvet Arc",
+    "category": "bottom",
+    "price": 83,
+    "color": "Burgundy",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/bottom/11",
+    "style_tags": [
+      "preppy",
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "a3b38cdc-d01e-492f-9932-dde848a244c7",
+    "name": "Sky Pleated Skirt",
+    "brand": "Studio Nine",
+    "category": "bottom",
+    "price": 100,
+    "color": "Sky",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/bottom/12",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday",
+      "event"
+    ]
+  },
+  {
+    "id": "4e3f8a5d-03a5-4532-bc35-79e1488bfc99",
+    "name": "Navy Straight Khakis",
+    "brand": "Harbor Knit",
+    "category": "bottom",
+    "price": 117,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/bottom/13",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "fe2a3f9d-0ee1-4c11-a06e-fc874b4a75ef",
+    "name": "Navy Boat Shoes",
+    "brand": "Velvet Arc",
+    "category": "shoes",
+    "price": 35,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/shoes/21",
+    "style_tags": [
+      "preppy",
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "cf244524-51df-4eae-91e1-f336db6f1b02",
+    "name": "Cream White Court Sneakers",
+    "brand": "Studio Nine",
+    "category": "shoes",
+    "price": 52,
+    "color": "Cream",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/shoes/22",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday",
+      "event"
+    ]
+  },
+  {
+    "id": "97fe28f9-e56d-448f-8a76-94a5bbea3695",
+    "name": "Burgundy Penny Loafers",
+    "brand": "Harbor Knit",
+    "category": "shoes",
+    "price": 69,
+    "color": "Burgundy",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/shoes/23",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "7f5da29c-ada9-453f-a877-93dc2de93e5d",
+    "name": "Burgundy Varsity Jacket",
+    "brand": "Velvet Arc",
+    "category": "outerwear",
+    "price": 96,
+    "color": "Burgundy",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/outerwear/31",
+    "style_tags": [
+      "preppy",
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "42378953-9676-4a55-bc1e-8f40cde9781a",
+    "name": "Sky Trench Coat",
+    "brand": "Studio Nine",
+    "category": "outerwear",
+    "price": 113,
+    "color": "Sky",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/outerwear/32",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday",
+      "event"
+    ]
+  },
+  {
+    "id": "07a5b134-a71d-4db9-b8ab-5cc6bf1571b2",
+    "name": "Navy Canvas Tote",
+    "brand": "Velvet Arc",
+    "category": "accessory",
+    "price": 48,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/accessory/41",
+    "style_tags": [
+      "preppy",
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "7ec94e50-46ab-4ae4-968c-6e308aeb6e1e",
+    "name": "Cream Ribbon Hair Clip",
+    "brand": "Studio Nine",
+    "category": "accessory",
+    "price": 65,
+    "color": "Cream",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/accessory/42",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday",
+      "event"
+    ]
+  },
+  {
+    "id": "e7d4ccee-34f0-4007-8639-4220c5fd0613",
+    "name": "Burgundy Leather Watch",
+    "brand": "Harbor Knit",
+    "category": "accessory",
+    "price": 82,
+    "color": "Burgundy",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/preppy/accessory/43",
+    "style_tags": [
+      "preppy"
+    ],
+    "occasion_tags": [
+      "school",
+      "work",
+      "everyday"
+    ]
+  },
+  {
+    "id": "9670ecdf-2527-4c68-af45-e5219b1825bc",
+    "name": "Black Cropped Performance Top",
+    "brand": "Aether",
+    "category": "top",
+    "price": 16,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/top/1",
+    "style_tags": [
+      "athleisure",
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "065ec10f-8c1d-4167-842d-b8746fd535c9",
+    "name": "Heather Grey Seamless Long Sleeve",
+    "brand": "Noir Lane",
+    "category": "top",
+    "price": 33,
+    "color": "Heather Grey",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/top/2",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "66b885ff-400a-44af-bc54-689168b14683",
+    "name": "Sage Zip Training Tee",
+    "brand": "Soft Form",
+    "category": "top",
+    "price": 50,
+    "color": "Sage",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/top/3",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "bf0a3b38-8ceb-4152-8102-f6f01d4a5e79",
+    "name": "Sage Sculpt Leggings",
+    "brand": "Aether",
+    "category": "bottom",
+    "price": 91,
+    "color": "Sage",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/bottom/11",
+    "style_tags": [
+      "athleisure",
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "f36c51b3-b9fe-46fa-aa5c-73ff53f11b26",
+    "name": "Navy Running Shorts",
+    "brand": "Noir Lane",
+    "category": "bottom",
+    "price": 108,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/bottom/12",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "3760ddb2-0467-4051-a024-8c232fdb55ac",
+    "name": "Black Tapered Joggers",
+    "brand": "Soft Form",
+    "category": "bottom",
+    "price": 30,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/bottom/13",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "ecc8cc11-7bb9-4516-8037-b0c9c381dc32",
+    "name": "Black Lightweight Trainers",
+    "brand": "Aether",
+    "category": "shoes",
+    "price": 71,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/shoes/21",
+    "style_tags": [
+      "athleisure",
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "5982a5f4-d94f-4d0e-a1c0-6b160eea9a0a",
+    "name": "Heather Grey Knit Runners",
+    "brand": "Noir Lane",
+    "category": "shoes",
+    "price": 88,
+    "color": "Heather Grey",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/shoes/22",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "295800a7-f597-4f86-aff5-a692403e6ada",
+    "name": "Sage Trail Cross-Trainers",
+    "brand": "Soft Form",
+    "category": "shoes",
+    "price": 105,
+    "color": "Sage",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/shoes/23",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "25814e2b-1e64-49b6-8390-6850742a15c3",
+    "name": "Sage Softshell Jacket",
+    "brand": "Aether",
+    "category": "outerwear",
+    "price": 51,
+    "color": "Sage",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/outerwear/31",
+    "style_tags": [
+      "athleisure",
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "5119673b-bde0-4ea8-9baa-d7b391617131",
+    "name": "Navy Packable Puffer",
+    "brand": "Noir Lane",
+    "category": "outerwear",
+    "price": 68,
+    "color": "Navy",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/outerwear/32",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "a3d78de1-3079-41f0-9894-a3aa4eec9621",
+    "name": "Black Sport Belt Bag",
+    "brand": "Aether",
+    "category": "accessory",
+    "price": 31,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/accessory/41",
+    "style_tags": [
+      "athleisure",
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "61e31a95-a131-4bd4-af6e-7ef44e0543d8",
+    "name": "Heather Grey Performance Cap",
+    "brand": "Noir Lane",
+    "category": "accessory",
+    "price": 48,
+    "color": "Heather Grey",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/accessory/42",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "556d27ba-54f4-448f-9a34-9113d3d61f82",
+    "name": "Sage Sweat Towel Band",
+    "brand": "Soft Form",
+    "category": "accessory",
+    "price": 65,
+    "color": "Sage",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/athleisure/accessory/43",
+    "style_tags": [
+      "athleisure"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "vacation",
+      "school"
+    ]
+  },
+  {
+    "id": "b5c5f20e-337f-4f22-ab23-3c433e3755b3",
+    "name": "Blue Everyday Tee",
+    "brand": "Velvet Arc",
+    "category": "top",
+    "price": 12,
+    "color": "Blue",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/top/1",
+    "style_tags": [
+      "casual",
+      "formal"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "eb457970-6701-4be1-850f-6cbd2391ae45",
+    "name": "White Henley",
+    "brand": "Studio Nine",
+    "category": "top",
+    "price": 29,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/top/2",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation",
+      "date"
+    ]
+  },
+  {
+    "id": "2d7cdede-d1dd-4179-abbe-d2c50306faaa",
+    "name": "Sand Flannel Shirt",
+    "brand": "Harbor Knit",
+    "category": "top",
+    "price": 46,
+    "color": "Sand",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/top/3",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "3e5bbc84-5fff-4d68-8607-f37b6118d65b",
+    "name": "Charcoal Relaxed Knit",
+    "brand": "Pulse Wear",
+    "category": "top",
+    "price": 63,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/top/4",
+    "style_tags": [
+      "casual",
+      "formal"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation",
+      "date"
+    ]
+  },
+  {
+    "id": "5728cd28-a887-41df-90c1-71658e28f046",
+    "name": "Sand Straight Jeans",
+    "brand": "Velvet Arc",
+    "category": "bottom",
+    "price": 24,
+    "color": "Sand",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/bottom/11",
+    "style_tags": [
+      "casual",
+      "formal"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "1a42d6d5-8793-4fda-a8b2-63d40190bfdf",
+    "name": "Charcoal Chino Shorts",
+    "brand": "Studio Nine",
+    "category": "bottom",
+    "price": 41,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/bottom/12",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation",
+      "date"
+    ]
+  },
+  {
+    "id": "4549a150-ca0c-4c5e-8e49-6ee2fdc9cffd",
+    "name": "Blue Easy Drawstring Pants",
+    "brand": "Harbor Knit",
+    "category": "bottom",
+    "price": 58,
+    "color": "Blue",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/bottom/13",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "fe07f7b3-a8d6-4494-bdd0-7d0da246bacc",
+    "name": "Blue Classic White Sneakers",
+    "brand": "Velvet Arc",
+    "category": "shoes",
+    "price": 36,
+    "color": "Blue",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/shoes/21",
+    "style_tags": [
+      "casual",
+      "formal"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "633700c0-5d6f-4075-be4c-b81e0b5d02aa",
+    "name": "White Suede Slip-Ons",
+    "brand": "Studio Nine",
+    "category": "shoes",
+    "price": 53,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/shoes/22",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation",
+      "date"
+    ]
+  },
+  {
+    "id": "abc59e96-1fd3-4557-8d3d-b7d70e7f5692",
+    "name": "Sand Canvas Lows",
+    "brand": "Harbor Knit",
+    "category": "shoes",
+    "price": 70,
+    "color": "Sand",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/shoes/23",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "55ee946b-0d1a-477d-83c5-b62470177b49",
+    "name": "Sand Washed Denim Jacket",
+    "brand": "Velvet Arc",
+    "category": "outerwear",
+    "price": 48,
+    "color": "Sand",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/outerwear/31",
+    "style_tags": [
+      "casual",
+      "formal"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "54502f02-6634-43cc-ba1d-ef2a54397711",
+    "name": "Charcoal Quilted Shirt Jacket",
+    "brand": "Studio Nine",
+    "category": "outerwear",
+    "price": 65,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/outerwear/32",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation",
+      "date"
+    ]
+  },
+  {
+    "id": "ea151606-400c-47bd-ae3f-43a5debbdd44",
+    "name": "Blue Everyday Backpack",
+    "brand": "Velvet Arc",
+    "category": "accessory",
+    "price": 60,
+    "color": "Blue",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/accessory/41",
+    "style_tags": [
+      "casual",
+      "formal"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "3fb09c03-f40e-4095-a586-d897e89fa904",
+    "name": "White Simple Beanie",
+    "brand": "Studio Nine",
+    "category": "accessory",
+    "price": 77,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/accessory/42",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation",
+      "date"
+    ]
+  },
+  {
+    "id": "c7fb5ab8-801d-4d4b-af57-ea0ebc7232b8",
+    "name": "Sand Canvas Belt",
+    "brand": "Harbor Knit",
+    "category": "accessory",
+    "price": 15,
+    "color": "Sand",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/casual/accessory/43",
+    "style_tags": [
+      "casual"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "vacation"
+    ]
+  },
+  {
+    "id": "c800374f-87ff-43ec-8552-d120cdecd559",
+    "name": "Black Silk Camisole",
+    "brand": "Velvet Arc",
+    "category": "top",
+    "price": 34,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/top/1",
+    "style_tags": [
+      "formal",
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "96750432-be6b-42d3-a306-7ee3b8b596e7",
+    "name": "Champagne Crisp Dress Shirt",
+    "brand": "Studio Nine",
+    "category": "top",
+    "price": 51,
+    "color": "Champagne",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/top/2",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "1b82db24-dc43-47a8-adc4-41a59f12d15c",
+    "name": "Charcoal Satin Blouse",
+    "brand": "Harbor Knit",
+    "category": "top",
+    "price": 68,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/top/3",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "06a16ef3-a808-4c97-921f-954a37f4a858",
+    "name": "Charcoal Tailored Trousers",
+    "brand": "Velvet Arc",
+    "category": "bottom",
+    "price": 87,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/bottom/11",
+    "style_tags": [
+      "formal",
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "ecafdd34-4c05-4354-bfd4-430acac20bb5",
+    "name": "Deep Red Column Skirt",
+    "brand": "Studio Nine",
+    "category": "bottom",
+    "price": 104,
+    "color": "Deep Red",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/bottom/12",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "aef3f8d8-b835-4418-b9ce-8e5078b5dba7",
+    "name": "Black Tuxedo Pants",
+    "brand": "Harbor Knit",
+    "category": "bottom",
+    "price": 121,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/bottom/13",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "15a1dc0a-2ce3-450b-a258-a663408fdabd",
+    "name": "Black Pointed Heels",
+    "brand": "Velvet Arc",
+    "category": "shoes",
+    "price": 140,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/shoes/21",
+    "style_tags": [
+      "formal",
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "ecc791a8-aa88-4564-8832-f80ae3ae5b78",
+    "name": "Champagne Patent Oxfords",
+    "brand": "Studio Nine",
+    "category": "shoes",
+    "price": 40,
+    "color": "Champagne",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/shoes/22",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "dcec188e-ae3e-4dda-af71-0d7ba781454c",
+    "name": "Charcoal Strappy Evening Sandals",
+    "brand": "Harbor Knit",
+    "category": "shoes",
+    "price": 57,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/shoes/23",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "9f8e8251-f854-491d-ab8d-41552097760a",
+    "name": "Charcoal Structured Blazer",
+    "brand": "Velvet Arc",
+    "category": "outerwear",
+    "price": 76,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/outerwear/31",
+    "style_tags": [
+      "formal",
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "3802e7c8-be2c-46ca-8021-091cb8ae14e0",
+    "name": "Deep Red Evening Wrap Coat",
+    "brand": "Studio Nine",
+    "category": "outerwear",
+    "price": 93,
+    "color": "Deep Red",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/outerwear/32",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "092753e0-444c-4a9d-ae38-88a0835e6bae",
+    "name": "Black Clutch",
+    "brand": "Velvet Arc",
+    "category": "accessory",
+    "price": 129,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/accessory/41",
+    "style_tags": [
+      "formal",
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "b13e43e3-58fa-4313-a120-b7e8a7182493",
+    "name": "Champagne Pearl Studs",
+    "brand": "Studio Nine",
+    "category": "accessory",
+    "price": 146,
+    "color": "Champagne",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/accessory/42",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out",
+      "date"
+    ]
+  },
+  {
+    "id": "549b4457-271e-4e0b-9523-9c38bcbf4530",
+    "name": "Charcoal Silk Pocket Square",
+    "brand": "Harbor Knit",
+    "category": "accessory",
+    "price": 46,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/formal/accessory/43",
+    "style_tags": [
+      "formal"
+    ],
+    "occasion_tags": [
+      "work",
+      "event",
+      "night out"
+    ]
+  },
+  {
+    "id": "7f9e9ec2-49b9-4500-9d73-5a51776f1f72",
+    "name": "Butter Soft Rib Tank",
+    "brand": "Aether",
+    "category": "top",
+    "price": 15,
+    "color": "Butter",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/top/1",
+    "style_tags": [
+      "clean girl",
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "4b6313cd-ac4e-44f2-b31a-91ab9cf9012a",
+    "name": "White Butter Tee",
+    "brand": "Noir Lane",
+    "category": "top",
+    "price": 32,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/top/2",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "f3e9127a-d181-498b-aaa2-0cd6415e7112",
+    "name": "Soft Brown Slim Mock Neck",
+    "brand": "Soft Form",
+    "category": "top",
+    "price": 49,
+    "color": "Soft Brown",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/top/3",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "fc18bbed-cb98-43b8-9f15-0d6089134ee6",
+    "name": "Soft Brown Linen Wide Pants",
+    "brand": "Aether",
+    "category": "bottom",
+    "price": 17,
+    "color": "Soft Brown",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/bottom/11",
+    "style_tags": [
+      "clean girl",
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "2dfb41c4-34aa-4200-8350-43d12e48df4a",
+    "name": "Blush Soft Foldover Pants",
+    "brand": "Noir Lane",
+    "category": "bottom",
+    "price": 34,
+    "color": "Blush",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/bottom/12",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "5227b17a-2c0c-46c3-8866-b529c121cb46",
+    "name": "Butter Clean Straight Jeans",
+    "brand": "Soft Form",
+    "category": "bottom",
+    "price": 51,
+    "color": "Butter",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/bottom/13",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "e0b8281c-9a38-49af-bb26-8ffe2ae26d33",
+    "name": "Butter Ballet Flats",
+    "brand": "Aether",
+    "category": "shoes",
+    "price": 19,
+    "color": "Butter",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/shoes/21",
+    "style_tags": [
+      "clean girl",
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "e0802ffb-9bc5-477c-8b49-2e6414882373",
+    "name": "White Clean Court Sneakers",
+    "brand": "Noir Lane",
+    "category": "shoes",
+    "price": 36,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/shoes/22",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "c2c6e864-064b-4663-b89e-f3d15d38cb50",
+    "name": "Soft Brown Soft Mules",
+    "brand": "Soft Form",
+    "category": "shoes",
+    "price": 53,
+    "color": "Soft Brown",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/shoes/23",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "f8084447-efcd-4f13-8beb-03b87a7d1d89",
+    "name": "Soft Brown Lightweight Cardigan",
+    "brand": "Aether",
+    "category": "outerwear",
+    "price": 21,
+    "color": "Soft Brown",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/outerwear/31",
+    "style_tags": [
+      "clean girl",
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "0dcf9ccc-8080-403f-ab77-bef4da77b3ca",
+    "name": "Blush Soft Trench",
+    "brand": "Noir Lane",
+    "category": "outerwear",
+    "price": 38,
+    "color": "Blush",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/outerwear/32",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "fd6266ee-4550-4f44-a3c1-3d5fcc5cbf4f",
+    "name": "Butter Gold Hoops",
+    "brand": "Aether",
+    "category": "accessory",
+    "price": 23,
+    "color": "Butter",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/accessory/41",
+    "style_tags": [
+      "clean girl",
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "0e81bc2f-9324-4323-a2f6-ea5aed48e563",
+    "name": "White Slick Claw Clip",
+    "brand": "Noir Lane",
+    "category": "accessory",
+    "price": 40,
+    "color": "White",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/accessory/42",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date",
+      "vacation"
+    ]
+  },
+  {
+    "id": "845e13c2-4870-48b0-906e-648d46dc0301",
+    "name": "Soft Brown Mini Shoulder Bag",
+    "brand": "Soft Form",
+    "category": "accessory",
+    "price": 57,
+    "color": "Soft Brown",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/clean-girl/accessory/43",
+    "style_tags": [
+      "clean girl"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "school",
+      "date"
+    ]
+  },
+  {
+    "id": "ece6cd20-8d4d-4790-818a-fef68b574143",
+    "name": "Black Distressed Band Tee",
+    "brand": "Velvet Arc",
+    "category": "top",
+    "price": 16,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/top/1",
+    "style_tags": [
+      "grunge",
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "7dc4a56b-9d04-4b4f-8483-eab560a71c6e",
+    "name": "Washed Red Thermal Long Sleeve",
+    "brand": "Studio Nine",
+    "category": "top",
+    "price": 33,
+    "color": "Washed Red",
+    "image_url": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/top/2",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out",
+      "school"
+    ]
+  },
+  {
+    "id": "296fbe59-15f3-45f9-ac22-70d6727627eb",
+    "name": "Charcoal Washed Muscle Tank",
+    "brand": "Harbor Knit",
+    "category": "top",
+    "price": 50,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1562157873-818bc0726f68?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/top/3",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "4eb1a80f-3cd6-46cb-899d-fdb48faa84d6",
+    "name": "Charcoal Ripped Black Jeans",
+    "brand": "Velvet Arc",
+    "category": "bottom",
+    "price": 76,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1541099649105-f69ad21f1039?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/bottom/11",
+    "style_tags": [
+      "grunge",
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "ff0fefa7-264f-48b8-8702-af03d80e4b80",
+    "name": "Moss Plaid Pants",
+    "brand": "Studio Nine",
+    "category": "bottom",
+    "price": 93,
+    "color": "Moss",
+    "image_url": "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/bottom/12",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out",
+      "school"
+    ]
+  },
+  {
+    "id": "fa22eaef-a4ce-445b-b3ba-c036eda1e302",
+    "name": "Black Destroyed Denim",
+    "brand": "Harbor Knit",
+    "category": "bottom",
+    "price": 110,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/bottom/13",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "6de1e1e2-88e6-4508-830f-b1530bc6a4c5",
+    "name": "Black Combat Boots",
+    "brand": "Velvet Arc",
+    "category": "shoes",
+    "price": 26,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1460353581641-37baddab0fa2?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/shoes/21",
+    "style_tags": [
+      "grunge",
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "d9e61f91-531f-4729-a671-b0cd9633744b",
+    "name": "Washed Red Worn Skate Shoes",
+    "brand": "Studio Nine",
+    "category": "shoes",
+    "price": 43,
+    "color": "Washed Red",
+    "image_url": "https://images.unsplash.com/photo-1543163521-1bf726b0a4d5?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/shoes/22",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out",
+      "school"
+    ]
+  },
+  {
+    "id": "2fc94871-e9a3-468b-9514-7b57b1e0a5de",
+    "name": "Charcoal Chunky Platform Boots",
+    "brand": "Harbor Knit",
+    "category": "shoes",
+    "price": 60,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/shoes/23",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "7493ddd1-a782-4942-a744-8c618a08e57e",
+    "name": "Charcoal Flannel Shirt",
+    "brand": "Velvet Arc",
+    "category": "outerwear",
+    "price": 86,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/outerwear/31",
+    "style_tags": [
+      "grunge",
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "5027143a-54d9-40c6-ad06-d7fbdf9c1798",
+    "name": "Moss Leather Moto Jacket",
+    "brand": "Studio Nine",
+    "category": "outerwear",
+    "price": 103,
+    "color": "Moss",
+    "image_url": "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/outerwear/32",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out",
+      "school"
+    ]
+  },
+  {
+    "id": "27c51fa9-c846-4aaf-bd0a-ec2959722e5c",
+    "name": "Black Chain Necklace",
+    "brand": "Velvet Arc",
+    "category": "accessory",
+    "price": 36,
+    "color": "Black",
+    "image_url": "https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/accessory/41",
+    "style_tags": [
+      "grunge",
+      "streetwear"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  },
+  {
+    "id": "cb279d99-8d6d-4cb3-ad33-6d2346cbf452",
+    "name": "Washed Red Studded Belt",
+    "brand": "Studio Nine",
+    "category": "accessory",
+    "price": 53,
+    "color": "Washed Red",
+    "image_url": "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/accessory/42",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out",
+      "school"
+    ]
+  },
+  {
+    "id": "ac77b801-d1cc-4f54-902a-5928e62e2206",
+    "name": "Charcoal Beanie",
+    "brand": "Harbor Knit",
+    "category": "accessory",
+    "price": 70,
+    "color": "Charcoal",
+    "image_url": "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80",
+    "purchase_url": "https://example.com/products/grunge/accessory/43",
+    "style_tags": [
+      "grunge"
+    ],
+    "occasion_tags": [
+      "everyday",
+      "party",
+      "night out"
+    ]
+  }
+]
