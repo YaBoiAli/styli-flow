@@ -52,7 +52,8 @@
     "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
     "test:auth": "node --env-file=.env scripts/test-auth-saved.mjs",
     "test:subscription": "node --env-file=.env scripts/test-subscription.mjs",
-    "fn:serve": "bash scripts/serve-generate-outfit.sh"
+    "fn:serve": "bash scripts/serve-generate-outfit.sh",
+    "test:e2e:subscription": "node scripts/e2e-subscription.mjs"
   },
   "private": true
 }
