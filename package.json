@@ -38,6 +38,7 @@
     "@types/react": "~19.2.2",
     "dotenv": "^17.4.2",
     "jose": "^6.2.12",
+    "puppeteer-core": "^24.43.1",
     "tsx": "^4.23.13",
     "typescript": "~6.0.3"
   },
