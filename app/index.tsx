@@ -1,0 +1,66 @@
+import { useRouter } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+
+import { PrimaryButton } from '@/components/PrimaryButton';
+import { Screen } from '@/components/Screen';
+import { colors, spacing, typography } from '@/constants/theme';
+
+export default function WelcomeScreen() {
+  const router = useRouter();
+
+  return (
+    <Screen scroll={false} contentStyle={styles.content}>
+      <View style={styles.hero}>
+        <Animated.Text entering={FadeInDown.duration(700)} style={styles.brand}>
+          Styli
+        </Animated.Text>
+        <Animated.Text
+          entering={FadeInUp.delay(180).duration(700)}
+          style={styles.tagline}
+        >
+          Your AI stylist,{'\n'}in your pocket.
+        </Animated.Text>
+        <Animated.Text
+          entering={FadeInUp.delay(320).duration(700)}
+          style={styles.support}
+        >
+          Pick a vibe. Set a budget. Get a fit that feels like you.
+        </Animated.Text>
+      </View>
+
+      <Animated.View entering={FadeInUp.delay(480).duration(700)}>
+        <PrimaryButton
+          label="Get Started"
+          onPress={() => router.push('/style')}
+        />
+      </Animated.View>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    justifyContent: 'space-between',
+    paddingBottom: spacing.xxl,
+  },
+  hero: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: spacing.lg,
+    paddingTop: spacing.xxl,
+  },
+  brand: {
+    ...typography.brand,
+    color: colors.text,
+  },
+  tagline: {
+    ...typography.hero,
+    color: colors.text,
+  },
+  support: {
+    ...typography.subtitle,
+    color: colors.textSecondary,
+    maxWidth: 300,
+  },
+});
