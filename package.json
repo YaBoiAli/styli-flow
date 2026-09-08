@@ -42,7 +42,9 @@
     "web": "expo start --web",
     "db:generate-seed": "node scripts/generate-product-seed.mjs",
     "db:seed": "node --env-file=.env scripts/seed-products.mjs",
-    "db:verify": "node --env-file=.env scripts/verify-supabase.mjs"
+    "db:verify": "node --env-file=.env scripts/verify-supabase.mjs",
+    "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
+    "fn:serve": "bash scripts/serve-generate-outfit.sh"
   },
   "private": true
 }

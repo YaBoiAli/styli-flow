@@ -27,6 +27,7 @@ export type Product = {
   price: number;
   imageUrl: string;
   category: 'top' | 'bottom' | 'footwear' | 'outerwear' | 'accessory';
+  reason?: string;
 };
 
 /** UI/display outfit shape used by existing screens/components. */
@@ -38,6 +39,7 @@ export type Outfit = {
   products: Product[];
   total: number;
   explanation: string;
+  itemReasons?: Array<{ productId: string; reason: string }>;
 };
 
 export type UserPreferences = {

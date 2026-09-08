@@ -104,7 +104,7 @@ const catalog = {
     outerwear: ['Faux Fur Shrug', 'Cropped Puffer'],
     accessories: ['Tiny Shoulder Bag', 'Star Choker', 'Tinted Mini Specs'],
     occasions: ['party', 'night out', 'date', 'event'],
-    price: [14, 88],
+    price: [12, 70],
   },
   'old money': {
     colors: ['Camel', 'Ivory', 'Navy', 'Forest'],
@@ -197,9 +197,13 @@ function uuidFromSeed(seed) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-function priceInRange([min, max], index) {
+function priceInRange([min, max], index, category) {
   const span = max - min;
-  const value = min + ((index * 17) % Math.floor(span + 1));
+  let value = min + ((index * 17) % Math.floor(span + 1));
+  // Keep core pieces affordable enough for common Stage 3 budgets ($75/$100).
+  if (category === 'shoes') value = Math.min(value, min + Math.floor(span * 0.45));
+  if (category === 'bottom') value = Math.min(value, min + Math.floor(span * 0.55));
+  if (category === 'top') value = Math.min(value, min + Math.floor(span * 0.5));
   return Math.min(max, Math.max(min, Number(value.toFixed(2))));
 }
 
@@ -233,7 +237,7 @@ for (const style of styles) {
         name: `${color} ${name}`,
         brand,
         category,
-        price: priceInRange(cfg.price, idx),
+        price: priceInRange(cfg.price, idx, category),
         color,
         image_url: image,
         purchase_url: `https://example.com/products/${style.replace(/\s+/g, '-')}/${category}/${idx + 1}`,

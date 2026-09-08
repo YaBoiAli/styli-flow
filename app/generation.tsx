@@ -1,11 +1,15 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { Screen } from '@/components/Screen';
 import { usePreferences } from '@/context/PreferencesContext';
 import { spacing } from '@/constants/theme';
+import {
+  generateOutfit,
+  OutfitGenerationError,
+} from '@/lib/generateOutfit';
 
 const LOADING_MESSAGES = [
   'Finding your vibe...',
@@ -19,8 +23,17 @@ const STEP_MS = 900;
 
 export default function GenerationScreen() {
   const router = useRouter();
-  const { selectedStyle, selectedOccasion, selectedBudget } = usePreferences();
+  const {
+    selectedStyle,
+    selectedOccasion,
+    selectedBudget,
+    excludeProductIds,
+    setGeneratedOutfit,
+    setGenerationError,
+    clearGeneration,
+  } = usePreferences();
   const [messageIndex, setMessageIndex] = useState(0);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     if (!selectedStyle || !selectedOccasion || !selectedBudget) {
@@ -29,19 +42,65 @@ export default function GenerationScreen() {
   }, [selectedStyle, selectedOccasion, selectedBudget, router]);
 
   useEffect(() => {
-    if (messageIndex >= LOADING_MESSAGES.length - 1) {
-      const timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
+      setMessageIndex((current) =>
+        Math.min(current + 1, LOADING_MESSAGES.length - 1),
+      );
+    }, STEP_MS);
+    return () => clearTimeout(timeout);
+  }, [messageIndex]);
+
+  useEffect(() => {
+    if (!selectedStyle || !selectedOccasion || !selectedBudget) {
+      return;
+    }
+    if (startedRef.current) {
+      return;
+    }
+    startedRef.current = true;
+
+    let cancelled = false;
+
+    async function run() {
+      clearGeneration();
+      try {
+        const outfit = await generateOutfit({
+          style: selectedStyle!,
+          occasion: selectedOccasion!,
+          budget: selectedBudget!,
+          excludeProductIds,
+        });
+        if (cancelled) return;
+        setGeneratedOutfit(outfit);
+        setGenerationError(null);
         router.replace('/outfit');
-      }, STEP_MS);
-      return () => clearTimeout(timeout);
+      } catch (err) {
+        if (cancelled) return;
+        const message =
+          err instanceof OutfitGenerationError
+            ? err.message
+            : "Your stylist couldn't find the right fit. Try again.";
+        setGeneratedOutfit(null);
+        setGenerationError(message);
+        router.replace('/outfit');
+      }
     }
 
-    const timeout = setTimeout(() => {
-      setMessageIndex((current) => current + 1);
-    }, STEP_MS);
+    void run();
 
-    return () => clearTimeout(timeout);
-  }, [messageIndex, router]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedStyle,
+    selectedOccasion,
+    selectedBudget,
+    excludeProductIds,
+    clearGeneration,
+    setGeneratedOutfit,
+    setGenerationError,
+    router,
+  ]);
 
   return (
     <Screen scroll={false} contentStyle={styles.content}>

@@ -5,68 +5,60 @@ Your AI stylist, in your pocket.
 ## Stack
 
 - React Native + Expo + TypeScript + Expo Router
-- Supabase (Postgres, Auth-ready schema, product catalog)
+- Supabase (Postgres + Edge Functions)
+- OpenAI (server-side only via Edge Function)
 
 ## Stage status
 
-- **Stage 1:** Onboarding UI (complete)
-- **Stage 2:** Supabase backend + product catalog (current)
-- Not yet: OpenAI, auth UI, RevenueCat, OneSignal, PostHog
+- Stage 1: Onboarding UI
+- Stage 2: Supabase catalog
+- **Stage 3: AI outfit generation via `generate-outfit` Edge Function**
+- Not yet: auth UI, RevenueCat, OneSignal, PostHog
+
+## Security
+
+The OpenAI API key never ships in the mobile app.
+
+Flow:
+
+`iOS/App → Supabase Edge Function generate-outfit → OpenAI → Supabase products → App`
 
 ## Run the app
 
 ```bash
 cp .env.example .env
-# fill EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
+# set EXPO_PUBLIC_SUPABASE_URL + EXPO_PUBLIC_SUPABASE_ANON_KEY
+# set OPENAI_API_KEY as a Supabase Edge Function secret (not in the app)
 
 npm install
 npx expo start
 ```
 
-## Supabase setup
-
-1. Create a Supabase project.
-2. In the SQL editor, run:
-   - `supabase/migrations/20260322000000_init_styli_schema.sql`
-   - `supabase/seed.sql` (148 products)
-3. Copy Project URL + anon key into `.env` (see `.env.example`).
-4. Never put the service-role key in the mobile app.
-
-Optional scripts:
+## Deploy Edge Function
 
 ```bash
-# Regenerate seed SQL + JSON from the product generator
-node scripts/generate-product-seed.mjs
-
-# Upsert products with the service-role key (server/dev only)
-node --env-file=.env scripts/seed-products.mjs
-
-# Verify anon client can read products
-node --env-file=.env scripts/verify-supabase.mjs
+# From a machine with Supabase CLI + project linked:
+supabase secrets set OPENAI_API_KEY=sk-...
+supabase functions deploy generate-outfit
 ```
 
-### Local PostgREST (optional, for this repo’s agent/dev machine)
+SQL (Stage 2) must already be applied and seeded.
+
+## Local Stage 3 services (optional)
 
 ```bash
-# After local Postgres has schema + seed applied:
- /tmp/postgrest supabase/local/postgrest.conf
+# PostgREST + proxy + function (see scripts/)
+bash scripts/serve-generate-outfit.sh
 node scripts/local-supabase-proxy.mjs
-node --env-file=.env scripts/verify-supabase.mjs
+npm run db:verify
+npm run test:generate
 ```
+
+`ALLOW_HEURISTIC_FALLBACK=true` enables a budget-safe local fallback when `OPENAI_API_KEY` is unset. Production should set a real OpenAI key and keep the fallback off.
 
 ## Onboarding flow
 
-1. Welcome → Get Started
-2. Style → Occasion → Budget
-3. Generation animation
-4. Outfit results (products fetched from Supabase)
-
-## Project structure
-
-- `app/` — Expo Router screens
-- `components/` — reusable UI
-- `context/` — onboarding preferences
-- `lib/` — Supabase client + product/outfit helpers
-- `supabase/` — migrations, seed, local helpers
-- `types/` — UI + database TypeScript types
-- `data/product-seed.json` — seed source mirror (148 products)
+1. Welcome → Style → Occasion → Budget
+2. **Build my fit** → Generation animation while Edge Function runs
+3. Results show AI outfit (name, products, DB prices, reasons, tip)
+4. **Rebuild** requests a different combination with the same preferences

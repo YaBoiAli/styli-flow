@@ -31,6 +31,7 @@ export function OutfitCard({ outfit }: OutfitCardProps) {
       </View>
 
       <View style={styles.explanation}>
+        <Text style={styles.explanationLabel}>Styling tip</Text>
         <Text style={styles.explanationText}>{outfit.explanation}</Text>
       </View>
     </View>
@@ -84,6 +85,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.lg,
     padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  explanationLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   explanationText: {
     ...typography.body,

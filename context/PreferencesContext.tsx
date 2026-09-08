@@ -7,27 +7,31 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { Occasion, Style, UserPreferences } from '@/types';
+import type { Occasion, Outfit, Style, UserPreferences } from '@/types';
 
 type PreferencesContextValue = UserPreferences & {
   setStyle: (style: Style) => void;
   setOccasion: (occasion: Occasion) => void;
   setBudget: (budget: number) => void;
   resetPreferences: () => void;
+  generatedOutfit: Outfit | null;
+  generationError: string | null;
+  excludeProductIds: string[];
+  setGeneratedOutfit: (outfit: Outfit | null) => void;
+  setGenerationError: (message: string | null) => void;
+  prepareRebuild: () => void;
+  clearGeneration: () => void;
 };
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
-
-const initialState: UserPreferences = {
-  selectedStyle: null,
-  selectedOccasion: null,
-  selectedBudget: null,
-};
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [selectedOccasion, setSelectedOccasion] = useState<Occasion | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<number | null>(null);
+  const [generatedOutfit, setGeneratedOutfit] = useState<Outfit | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [excludeProductIds, setExcludeProductIds] = useState<string[]>([]);
 
   const setStyle = useCallback((style: Style) => {
     setSelectedStyle(style);
@@ -41,10 +45,27 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setSelectedBudget(budget);
   }, []);
 
+  const clearGeneration = useCallback(() => {
+    setGeneratedOutfit(null);
+    setGenerationError(null);
+  }, []);
+
+  const prepareRebuild = useCallback(() => {
+    setExcludeProductIds((current) => {
+      const fromOutfit = generatedOutfit?.products.map((product) => product.id) ?? [];
+      return [...new Set([...current, ...fromOutfit])];
+    });
+    setGeneratedOutfit(null);
+    setGenerationError(null);
+  }, [generatedOutfit]);
+
   const resetPreferences = useCallback(() => {
     setSelectedStyle(null);
     setSelectedOccasion(null);
     setSelectedBudget(null);
+    setGeneratedOutfit(null);
+    setGenerationError(null);
+    setExcludeProductIds([]);
   }, []);
 
   const value = useMemo(
@@ -56,6 +77,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setOccasion,
       setBudget,
       resetPreferences,
+      generatedOutfit,
+      generationError,
+      excludeProductIds,
+      setGeneratedOutfit,
+      setGenerationError,
+      prepareRebuild,
+      clearGeneration,
     }),
     [
       selectedStyle,
@@ -65,6 +93,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setOccasion,
       setBudget,
       resetPreferences,
+      generatedOutfit,
+      generationError,
+      excludeProductIds,
+      prepareRebuild,
+      clearGeneration,
     ],
   );
 
