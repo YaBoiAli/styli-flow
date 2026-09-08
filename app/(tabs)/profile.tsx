@@ -78,6 +78,18 @@ export default function ProfileScreen() {
         <Text style={styles.body}>
           Create a free Styli account to save fits and sync your vibe.
         </Text>
+        <View style={styles.card}>
+          <Text style={styles.label}>Plan</Text>
+          <Text style={styles.value} testID="plan-status">
+            {isPremium ? 'Vibe Pro' : 'Free Plan'}
+          </Text>
+          {!isPremium ? (
+            <PrimaryButton
+              label="Upgrade to Vibe Pro"
+              onPress={() => router.push('/paywall?redirect=/profile')}
+            />
+          ) : null}
+        </View>
       </Screen>
     );
   }
