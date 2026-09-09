@@ -9,6 +9,7 @@ Your AI stylist, in your pocket.
 - OpenAI (server-side only via Edge Function)
 - RevenueCat (subscriptions / premium entitlement)
 - PostHog (product analytics)
+- OneSignal (push notifications)
 
 ## Stage status
 
@@ -17,7 +18,28 @@ Your AI stylist, in your pocket.
 - Stage 3: AI outfit generation
 - Stage 4: Auth + saved outfits
 - Stage 5: RevenueCat Premium
-- **Stage 6: PostHog analytics**
+- Stage 6: PostHog analytics
+- **Stage 7: OneSignal push notifications**
+
+## Push notifications (OneSignal)
+
+Configured via `onesignal-expo-plugin` + `lib/notifications.ts`.
+
+- Permission is **not** requested on launch
+- After the first successful outfit, Styli shows a soft prompt once, then the OS permission dialog
+- Answers (allow / not now / deny) are remembered — Styli never re-asks
+- App keeps working if notifications are denied or OneSignal isn’t configured
+- Native push requires an Expo Dev Client / EAS build (not Expo Go or web)
+
+```bash
+EXPO_PUBLIC_ONESIGNAL_APP_ID=your-onesignal-app-id
+```
+
+Example re-engagement messages for the OneSignal dashboard:
+
+- "New week, new fit 👀"
+- "Going out tonight? Let Vibe build your fit."
+- "New seasonal styles just dropped."
 
 ## Analytics (PostHog)
 

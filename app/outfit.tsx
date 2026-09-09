@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
@@ -21,6 +21,7 @@ import {
   premiumStatusLabel,
   trackEvent,
 } from '@/lib/analytics';
+import { maybeAskNotificationPermission } from '@/lib/notifications';
 
 export default function OutfitScreen() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function OutfitScreen() {
   const { isAuthenticated, user, setPendingSaveOutfit } = useAuth();
   const { isPremium, checkCanGenerate } = useSubscription();
   const [saving, setSaving] = useState(false);
+  const notificationPromptedRef = useRef(false);
 
   const analyticsBase = {
     style: selectedStyle ?? undefined,
@@ -44,6 +46,18 @@ export default function OutfitScreen() {
     premium_status: premiumStatusLabel(isPremium),
     outfit_total: generatedOutfit?.total,
   };
+
+  // Ask once after the user has seen a successful fit — not on cold launch.
+  useEffect(() => {
+    if (!generatedOutfit || generationError || notificationPromptedRef.current) {
+      return;
+    }
+    notificationPromptedRef.current = true;
+    const timer = setTimeout(() => {
+      void maybeAskNotificationPermission();
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [generatedOutfit, generationError]);
 
   if (!selectedStyle || !selectedOccasion || !selectedBudget) {
     return (

@@ -17,6 +17,7 @@ import { PreferencesProvider } from '@/context/PreferencesContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { colors } from '@/constants/theme';
 import { initAnalytics, trackAppOpened } from '@/lib/analytics';
+import { initNotifications } from '@/lib/notifications';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -39,6 +40,8 @@ export default function RootLayout() {
       void initAnalytics().then(() => {
         trackAppOpened();
       });
+      // Initialize OneSignal only — never request permission on launch.
+      void initNotifications();
     }
   }, [loaded]);
 
