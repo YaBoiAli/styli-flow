@@ -10,6 +10,11 @@ import { usePreferences } from '@/context/PreferencesContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { FREE_GENERATION_LIMIT } from '@/constants/subscriptions';
 import { colors, spacing, typography } from '@/constants/theme';
+import {
+  getBudgetRange,
+  premiumStatusLabel,
+  trackEvent,
+} from '@/lib/analytics';
 
 export default function BudgetScreen() {
   const router = useRouter();
@@ -32,6 +37,17 @@ export default function BudgetScreen() {
     }
   }, [selectedStyle, selectedOccasion, router]);
 
+  function handleBudgetChange(budget: number) {
+    setBudget(budget);
+    trackEvent('budget_selected', {
+      budget,
+      budget_range: getBudgetRange(budget),
+      style: selectedStyle ?? undefined,
+      occasion: selectedOccasion ?? undefined,
+      premium_status: premiumStatusLabel(isPremium),
+    });
+  }
+
   async function handleBuild() {
     setChecking(true);
     try {
@@ -40,6 +56,15 @@ export default function BudgetScreen() {
         router.push('/paywall?redirect=/generation');
         return;
       }
+      trackEvent('onboarding_completed', {
+        style: selectedStyle ?? undefined,
+        occasion: selectedOccasion ?? undefined,
+        budget: selectedBudget ?? undefined,
+        budget_range: selectedBudget
+          ? getBudgetRange(selectedBudget)
+          : undefined,
+        premium_status: premiumStatusLabel(isPremium),
+      });
       router.push('/generation');
     } finally {
       setChecking(false);
@@ -78,7 +103,7 @@ export default function BudgetScreen() {
         </Text>
       </View>
 
-      <BudgetSelector value={selectedBudget} onChange={setBudget} />
+      <BudgetSelector value={selectedBudget} onChange={handleBudgetChange} />
     </Screen>
   );
 }

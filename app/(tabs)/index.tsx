@@ -5,6 +5,7 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { colors, spacing, typography } from '@/constants/theme';
+import { trackEvent } from '@/lib/analytics';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -17,7 +18,10 @@ export default function HomeScreen() {
         <PrimaryButton
           label="Get Started"
           testID="btn-get-started"
-          onPress={() => router.push('/style')}
+          onPress={() => {
+            trackEvent('onboarding_started');
+            router.push('/style');
+          }}
         />
       }
     >

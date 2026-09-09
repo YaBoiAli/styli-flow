@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
@@ -10,6 +10,7 @@ import {
   PAYWALL_FEATURES,
 } from '@/constants/subscriptions';
 import { colors, radii, spacing, typography } from '@/constants/theme';
+import { premiumStatusLabel, trackEvent } from '@/lib/analytics';
 
 export default function PaywallScreen() {
   const router = useRouter();
@@ -32,6 +33,13 @@ export default function PaywallScreen() {
   );
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    trackEvent('paywall_viewed', {
+      premium_status: premiumStatusLabel(isPremium),
+      redirect: redirectTo,
+    });
+  }, [isPremium, redirectTo]);
+
   async function finishSuccess() {
     await refreshCustomerInfo();
     router.replace(redirectTo as '/style');
@@ -40,6 +48,10 @@ export default function PaywallScreen() {
   async function handlePurchase(kind: 'monthly' | 'yearly') {
     setLoading(kind);
     setError(null);
+    trackEvent('purchase_started', {
+      plan: kind,
+      premium_status: premiumStatusLabel(isPremium),
+    });
     try {
       const ok =
         kind === 'monthly' ? await purchaseMonthly() : await purchaseYearly();
@@ -47,6 +59,10 @@ export default function PaywallScreen() {
         setError('Purchase completed, but premium is not active yet.');
         return;
       }
+      trackEvent('purchase_completed', {
+        plan: kind,
+        premium_status: 'premium',
+      });
       await finishSuccess();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Purchase failed.';
@@ -69,6 +85,9 @@ export default function PaywallScreen() {
         setError('No active premium purchases found.');
         return;
       }
+      trackEvent('subscription_restored', {
+        premium_status: 'premium',
+      });
       await finishSuccess();
     } catch {
       setError("Couldn't restore purchases.");

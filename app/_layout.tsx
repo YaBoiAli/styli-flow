@@ -16,6 +16,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { PreferencesProvider } from '@/context/PreferencesContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { colors } from '@/constants/theme';
+import { initAnalytics, trackAppOpened } from '@/lib/analytics';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -35,6 +36,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      void initAnalytics().then(() => {
+        trackAppOpened();
+      });
     }
   }, [loaded]);
 

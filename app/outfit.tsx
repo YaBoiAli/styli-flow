@@ -16,6 +16,11 @@ import {
   saveGeneratedOutfit,
 } from '@/lib/savedOutfits';
 import { updateProfilePreferences } from '@/lib/profile';
+import {
+  getBudgetRange,
+  premiumStatusLabel,
+  trackEvent,
+} from '@/lib/analytics';
 
 export default function OutfitScreen() {
   const router = useRouter();
@@ -30,6 +35,15 @@ export default function OutfitScreen() {
   const { isAuthenticated, user, setPendingSaveOutfit } = useAuth();
   const { isPremium, checkCanGenerate } = useSubscription();
   const [saving, setSaving] = useState(false);
+
+  const analyticsBase = {
+    style: selectedStyle ?? undefined,
+    occasion: selectedOccasion ?? undefined,
+    budget: selectedBudget ?? undefined,
+    budget_range: selectedBudget ? getBudgetRange(selectedBudget) : undefined,
+    premium_status: premiumStatusLabel(isPremium),
+    outfit_total: generatedOutfit?.total,
+  };
 
   if (!selectedStyle || !selectedOccasion || !selectedBudget) {
     return (
@@ -141,6 +155,7 @@ export default function OutfitScreen() {
         budget: selectedBudget,
         userId: user.id,
       });
+      trackEvent('outfit_saved', analyticsBase);
       try {
         await updateProfilePreferences({
           preferredStyles: [selectedStyle],
@@ -195,6 +210,7 @@ export default function OutfitScreen() {
                   router.push('/paywall?redirect=/generation');
                   return;
                 }
+                trackEvent('outfit_rebuilt', analyticsBase);
                 prepareRebuild();
                 router.replace('/generation');
               })();

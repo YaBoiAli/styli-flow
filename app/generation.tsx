@@ -9,6 +9,11 @@ import { usePreferences } from '@/context/PreferencesContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { spacing } from '@/constants/theme';
 import {
+  getBudgetRange,
+  premiumStatusLabel,
+  trackEvent,
+} from '@/lib/analytics';
+import {
   generateOutfit,
   OutfitGenerationError,
 } from '@/lib/generateOutfit';
@@ -67,6 +72,14 @@ export default function GenerationScreen() {
 
     async function run() {
       clearGeneration();
+      const baseProps = {
+        style: selectedStyle!,
+        occasion: selectedOccasion!,
+        budget: selectedBudget!,
+        budget_range: getBudgetRange(selectedBudget!),
+        premium_status: premiumStatusLabel(isPremium),
+      };
+
       try {
         const allowed = await checkCanGenerate();
         if (!allowed) {
@@ -75,6 +88,8 @@ export default function GenerationScreen() {
           }
           return;
         }
+
+        trackEvent('outfit_generation_started', baseProps);
 
         const outfit = await generateOutfit({
           style: selectedStyle!,
@@ -87,6 +102,11 @@ export default function GenerationScreen() {
         await consumeGeneration();
         setGeneratedOutfit(outfit);
         setGenerationError(null);
+        trackEvent('outfit_generated', {
+          ...baseProps,
+          outfit_total: outfit.total,
+          product_count: outfit.products.length,
+        });
         router.replace('/outfit');
       } catch (err) {
         if (cancelled) return;
@@ -94,6 +114,11 @@ export default function GenerationScreen() {
           err instanceof OutfitGenerationError
             ? err.message
             : "Your stylist couldn't find the right fit. Try again.";
+        trackEvent('outfit_generation_failed', {
+          ...baseProps,
+          error_code:
+            err instanceof OutfitGenerationError ? err.code ?? 'unknown' : 'unknown',
+        });
         setGeneratedOutfit(null);
         setGenerationError(message);
         router.replace('/outfit');

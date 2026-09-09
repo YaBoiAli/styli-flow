@@ -8,7 +8,8 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { usePreferences } from '@/context/PreferencesContext';
 import { colors, spacing, typography } from '@/constants/theme';
-import { OCCASIONS } from '@/types';
+import { trackEvent } from '@/lib/analytics';
+import { OCCASIONS, type Occasion } from '@/types';
 
 export default function OccasionScreen() {
   const router = useRouter();
@@ -19,6 +20,14 @@ export default function OccasionScreen() {
       router.replace('/style');
     }
   }, [selectedStyle, router]);
+
+  function handleOccasionPress(occasion: Occasion) {
+    setOccasion(occasion);
+    trackEvent('occasion_selected', {
+      occasion,
+      style: selectedStyle ?? undefined,
+    });
+  }
 
   return (
     <Screen
@@ -46,7 +55,7 @@ export default function OccasionScreen() {
             <OptionCard
               label={occasion}
               selected={selectedOccasion === occasion}
-              onPress={() => setOccasion(occasion)}
+              onPress={() => handleOccasionPress(occasion)}
             />
           </View>
         ))}

@@ -1,6 +1,7 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/constants/theme';
+import { trackEvent } from '@/lib/analytics';
 import type { Product } from '@/types';
 
 type ProductCardProps = {
@@ -9,7 +10,19 @@ type ProductCardProps = {
 
 export function ProductCard({ product }: ProductCardProps) {
   return (
-    <View style={styles.card}>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.9}
+      onPress={() => {
+        trackEvent('product_clicked', {
+          product_id: product.id,
+          product_category: product.category,
+          product_price: product.price,
+        });
+      }}
+      style={styles.card}
+      testID={`product-card-${product.id}`}
+    >
       <Image
         source={{ uri: product.imageUrl }}
         style={styles.image}
@@ -27,7 +40,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </Text>
         ) : null}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

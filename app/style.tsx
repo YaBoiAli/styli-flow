@@ -9,6 +9,7 @@ import { usePreferences } from '@/context/PreferencesContext';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { isPremiumStyle } from '@/constants/subscriptions';
 import { colors, spacing, typography } from '@/constants/theme';
+import { premiumStatusLabel, trackEvent } from '@/lib/analytics';
 import { STYLES, type Style } from '@/types';
 
 export default function StyleScreen() {
@@ -22,6 +23,10 @@ export default function StyleScreen() {
       return;
     }
     setStyle(styleName);
+    trackEvent('style_selected', {
+      style: styleName,
+      premium_status: premiumStatusLabel(isPremium),
+    });
   }
 
   return (

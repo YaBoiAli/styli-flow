@@ -8,6 +8,7 @@ Your AI stylist, in your pocket.
 - Supabase (Postgres, Auth, Edge Functions)
 - OpenAI (server-side only via Edge Function)
 - RevenueCat (subscriptions / premium entitlement)
+- PostHog (product analytics)
 
 ## Stage status
 
@@ -15,7 +16,25 @@ Your AI stylist, in your pocket.
 - Stage 2: Product catalog
 - Stage 3: AI outfit generation
 - Stage 4: Auth + saved outfits
-- **Stage 5: RevenueCat Premium**
+- Stage 5: RevenueCat Premium
+- **Stage 6: PostHog analytics**
+
+## Analytics (PostHog)
+
+Events are tracked via `lib/analytics.ts` (`trackEvent`). Screens never call PostHog directly. Failures are silent and never block UX.
+
+```bash
+EXPO_PUBLIC_POSTHOG_API_KEY=phc_...
+EXPO_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+```
+
+Local capture verification:
+
+```bash
+npm run analytics:dev-capture
+# then point EXPO_PUBLIC_POSTHOG_HOST=http://127.0.0.1:8439 and restart Expo
+npm run test:analytics
+```
 
 ## Premium (RevenueCat)
 
