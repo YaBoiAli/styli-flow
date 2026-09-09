@@ -1,17 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { SavedOutfitCard } from '@/components/SavedOutfitCard';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/context/AuthContext';
 import { colors, spacing, typography } from '@/constants/theme';
+import { friendlyError } from '@/lib/errors';
 import {
   fetchSavedOutfits,
   type SavedOutfitSummary,
@@ -38,7 +35,7 @@ export default function SavedScreen() {
       const rows = await fetchSavedOutfits();
       setOutfits(rows);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't load saved fits.");
+      setError(friendlyError(err, "Couldn't load saved fits."));
     } finally {
       setLoading(false);
     }
@@ -53,7 +50,7 @@ export default function SavedScreen() {
   if (authLoading || loading) {
     return (
       <Screen scroll={false} contentStyle={styles.centered}>
-        <ActivityIndicator color={colors.text} />
+        <LoadingAnimation message="Pulling up your closet..." stepIndex={1} stepCount={3} />
       </Screen>
     );
   }
@@ -69,6 +66,7 @@ export default function SavedScreen() {
           />
         }
       >
+        <Text style={styles.kicker}>Closet</Text>
         <Text style={styles.title}>Saved</Text>
         <Text style={styles.body}>
           Sign in to keep your favorite outfits and reopen them anytime.
@@ -79,17 +77,24 @@ export default function SavedScreen() {
 
   return (
     <Screen contentStyle={styles.content}>
+      <Text style={styles.kicker}>Closet</Text>
       <Text style={styles.title}>Saved</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.empty}>
+          <Text style={styles.error}>{error}</Text>
+          <PrimaryButton label="Try again" variant="secondary" onPress={() => void load()} />
+        </View>
+      ) : null}
       {!error && outfits.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.body}>No saved fits yet.</Text>
-          <PrimaryButton
-            label="Build a fit"
-            onPress={() => router.push('/style')}
-          />
+          <Text style={styles.emptyTitle}>No saved fits yet</Text>
+          <Text style={styles.body}>
+            Build a look you love, then tap save to keep it here.
+          </Text>
+          <PrimaryButton label="Build a fit" onPress={() => router.push('/style')} />
         </View>
-      ) : (
+      ) : null}
+      {!error && outfits.length > 0 ? (
         <View style={styles.list}>
           {outfits.map((outfit) => (
             <SavedOutfitCard
@@ -99,19 +104,25 @@ export default function SavedScreen() {
             />
           ))}
         </View>
-      )}
+      ) : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  kicker: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1.6,
   },
   title: {
     ...typography.title,
@@ -127,8 +138,15 @@ const styles = StyleSheet.create({
   },
   empty: {
     gap: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  emptyTitle: {
+    ...typography.label,
+    fontSize: 18,
+    color: colors.text,
   },
   list: {
     gap: spacing.md,
+    paddingTop: spacing.sm,
   },
 });

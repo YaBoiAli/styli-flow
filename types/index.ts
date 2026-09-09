@@ -32,6 +32,7 @@ export type Product = {
   imageUrl: string;
   category: 'top' | 'bottom' | 'footwear' | 'outerwear' | 'accessory';
   reason?: string;
+  purchaseUrl?: string;
 };
 
 /** UI/display outfit shape used by existing screens/components. */

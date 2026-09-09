@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { OutfitCard } from '@/components/OutfitCard';
@@ -21,6 +21,7 @@ import {
   premiumStatusLabel,
   trackEvent,
 } from '@/lib/analytics';
+import { friendlyError } from '@/lib/errors';
 import { maybeAskNotificationPermission } from '@/lib/notifications';
 
 export default function OutfitScreen() {
@@ -55,7 +56,7 @@ export default function OutfitScreen() {
     notificationPromptedRef.current = true;
     const timer = setTimeout(() => {
       void maybeAskNotificationPermission();
-    }, 1200);
+    }, 1400);
     return () => clearTimeout(timer);
   }, [generatedOutfit, generationError]);
 
@@ -68,6 +69,10 @@ export default function OutfitScreen() {
         }
       >
         <BackButton fallbackHref="/" />
+        <Text style={styles.errorTitle}>Let&apos;s start fresh</Text>
+        <Text style={styles.errorBody}>
+          Pick a vibe, occasion, and budget to build your next fit.
+        </Text>
       </Screen>
     );
   }
@@ -87,13 +92,6 @@ export default function OutfitScreen() {
                     router.push('/paywall?redirect=/generation');
                     return;
                   }
-                  if (!isPremium) {
-                    // Rebuild is a premium feature; free users may retry once more
-                    // only if they still have generation quota and this was an error.
-                    prepareRebuild();
-                    router.replace('/generation');
-                    return;
-                  }
                   prepareRebuild();
                   router.replace('/generation');
                 })();
@@ -108,11 +106,16 @@ export default function OutfitScreen() {
         }
       >
         <BackButton fallbackHref="/budget" />
-        <Text style={styles.errorTitle}>Couldn&apos;t lock the fit</Text>
-        <Text style={styles.errorBody}>
-          {generationError ??
-            "Your stylist couldn't find the right fit. Try again."}
-        </Text>
+        <View style={styles.errorBlock}>
+          <Text style={styles.errorEyebrow}>Almost</Text>
+          <Text style={styles.errorTitle}>Couldn&apos;t lock the fit</Text>
+          <Text style={styles.errorBody}>
+            {friendlyError(
+              generationError,
+              "Your stylist couldn't find the right fit. Try again.",
+            )}
+          </Text>
+        </View>
       </Screen>
     );
   }
@@ -186,11 +189,31 @@ export default function OutfitScreen() {
     } catch (err) {
       Alert.alert(
         'Couldn’t save',
-        err instanceof Error ? err.message : 'Try again in a moment.',
+        friendlyError(err, 'Try again in a moment.'),
       );
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleShop() {
+    if (!generatedOutfit) return;
+    const firstShopUrl = generatedOutfit.products.find(
+      (product) => product.purchaseUrl,
+    )?.purchaseUrl;
+    if (firstShopUrl) {
+      void Linking.openURL(firstShopUrl).catch(() => {
+        Alert.alert(
+          'Couldn’t open shop',
+          'Try tapping a piece below, or check back in a moment.',
+        );
+      });
+      return;
+    }
+    Alert.alert(
+      'Shop the pieces',
+      'Tap any item in the fit to open its shopping link.',
+    );
   }
 
   return (
@@ -198,12 +221,7 @@ export default function OutfitScreen() {
       contentStyle={styles.content}
       footer={
         <View style={styles.actions}>
-          <PrimaryButton
-            label="Shop this fit"
-            onPress={() =>
-              Alert.alert('Coming soon', 'Shopping links land in a later stage.')
-            }
-          />
+          <PrimaryButton label="Shop this fit" onPress={handleShop} />
           <PrimaryButton
             label="♡ Save"
             variant="secondary"
@@ -234,7 +252,7 @@ export default function OutfitScreen() {
       }
     >
       <BackButton fallbackHref="/budget" />
-      <OutfitCard outfit={generatedOutfit} />
+      <OutfitCard outfit={generatedOutfit} budget={selectedBudget} />
     </Screen>
   );
 }
@@ -245,6 +263,16 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.sm,
+  },
+  errorBlock: {
+    gap: spacing.sm,
+    paddingTop: spacing.md,
+  },
+  errorEyebrow: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1.6,
   },
   errorTitle: {
     ...typography.title,

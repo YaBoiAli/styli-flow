@@ -50,12 +50,13 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: colors.background,
     borderTopColor: colors.border,
-    height: 64,
-    paddingBottom: 8,
-    paddingTop: 8,
+    height: 68,
+    paddingBottom: 10,
+    paddingTop: 10,
   },
   label: {
     fontFamily: typography.caption.fontFamily,
-    fontSize: 12,
+    fontSize: 11,
+    letterSpacing: 0.3,
   },
 });

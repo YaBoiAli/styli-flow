@@ -15,11 +15,17 @@ export function SavedOutfitCard({ outfit, onPress }: SavedOutfitCardProps) {
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`${outfit.outfitName}, ${outfit.style}, $${outfit.totalPrice.toFixed(2)}`}
     >
       <View style={styles.images}>
         {images.length ? (
-          images.map((uri) => (
-            <Image key={uri} source={{ uri }} style={styles.image} />
+          images.map((uri, index) => (
+            <Image
+              key={`${outfit.id}-${index}`}
+              source={{ uri }}
+              style={styles.image}
+            />
           ))
         ) : (
           <View style={[styles.image, styles.imagePlaceholder]} />
@@ -29,7 +35,9 @@ export function SavedOutfitCard({ outfit, onPress }: SavedOutfitCardProps) {
         <Text style={styles.name} numberOfLines={1}>
           {outfit.outfitName}
         </Text>
-        <Text style={styles.style}>{outfit.style}</Text>
+        <Text style={styles.style}>
+          {outfit.style} · {outfit.occasion}
+        </Text>
         <Text style={styles.price}>${outfit.totalPrice.toFixed(2)}</Text>
       </View>
     </Pressable>
@@ -39,25 +47,28 @@ export function SavedOutfitCard({ outfit, onPress }: SavedOutfitCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
+    borderRadius: radii.xl,
     padding: spacing.md,
     gap: spacing.md,
   },
   pressed: {
-    opacity: 0.9,
+    opacity: 0.92,
+    transform: [{ scale: 0.995 }],
   },
   images: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
   image: {
-    width: 72,
-    height: 72,
+    flex: 1,
+    aspectRatio: 1,
+    maxWidth: 96,
+    height: 84,
     borderRadius: radii.md,
     backgroundColor: colors.surfaceMuted,
   },
   imagePlaceholder: {
-    width: 72,
+    width: 84,
   },
   meta: {
     gap: spacing.xs,
@@ -74,5 +85,6 @@ const styles = StyleSheet.create({
   price: {
     ...typography.price,
     color: colors.text,
+    marginTop: 2,
   },
 });

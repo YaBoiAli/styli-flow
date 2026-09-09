@@ -58,9 +58,9 @@ export function StyleCard({ styleName, selected, onPress }: StyleCardProps) {
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    minHeight: 118,
+    minHeight: 124,
     backgroundColor: colors.surface,
-    borderRadius: radii.lg,
+    borderRadius: radii.xl,
     padding: spacing.md,
     borderWidth: 1.5,
     borderColor: 'transparent',
@@ -78,8 +78,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   swatch: {
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     borderRadius: radii.sm,
     backgroundColor: colors.accentSoft,
   },
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.full,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     fontFamily: 'DMSans_500Medium',
     letterSpacing: 0.4,
     textTransform: 'uppercase',

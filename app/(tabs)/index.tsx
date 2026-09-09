@@ -61,10 +61,11 @@ const styles = StyleSheet.create({
   tagline: {
     ...typography.hero,
     color: colors.text,
+    maxWidth: 340,
   },
   support: {
     ...typography.subtitle,
     color: colors.textSecondary,
-    maxWidth: 300,
+    maxWidth: 320,
   },
 });

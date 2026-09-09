@@ -7,12 +7,13 @@ import { Screen } from '@/components/Screen';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { spacing } from '@/constants/theme';
+import { motion, spacing } from '@/constants/theme';
 import {
   getBudgetRange,
   premiumStatusLabel,
   trackEvent,
 } from '@/lib/analytics';
+import { friendlyError } from '@/lib/errors';
 import {
   generateOutfit,
   OutfitGenerationError,
@@ -25,8 +26,6 @@ const LOADING_MESSAGES = [
   'Styling your outfit...',
   'Finalizing your fit...',
 ] as const;
-
-const STEP_MS = 900;
 
 export default function GenerationScreen() {
   const router = useRouter();
@@ -51,11 +50,12 @@ export default function GenerationScreen() {
   }, [selectedStyle, selectedOccasion, selectedBudget, router]);
 
   useEffect(() => {
+    if (messageIndex >= LOADING_MESSAGES.length - 1) return;
     const timeout = setTimeout(() => {
       setMessageIndex((current) =>
         Math.min(current + 1, LOADING_MESSAGES.length - 1),
       );
-    }, STEP_MS);
+    }, motion.step);
     return () => clearTimeout(timeout);
   }, [messageIndex]);
 
@@ -107,13 +107,20 @@ export default function GenerationScreen() {
           outfit_total: outfit.total,
           product_count: outfit.products.length,
         });
-        router.replace('/outfit');
+        // Land on the last styling beat before revealing results.
+        setMessageIndex(LOADING_MESSAGES.length - 1);
+        setTimeout(() => {
+          if (!cancelled) router.replace('/outfit');
+        }, 420);
       } catch (err) {
         if (cancelled) return;
         const message =
           err instanceof OutfitGenerationError
-            ? err.message
-            : "Your stylist couldn't find the right fit. Try again.";
+            ? friendlyError(err, err.message)
+            : friendlyError(
+                err,
+                "Your stylist couldn't find the right fit. Try again.",
+              );
         trackEvent('outfit_generation_failed', {
           ...baseProps,
           error_code:
@@ -148,7 +155,11 @@ export default function GenerationScreen() {
   return (
     <Screen scroll={false} contentStyle={styles.content}>
       <View style={styles.center}>
-        <LoadingAnimation message={LOADING_MESSAGES[messageIndex]} />
+        <LoadingAnimation
+          message={LOADING_MESSAGES[messageIndex]}
+          stepIndex={messageIndex}
+          stepCount={LOADING_MESSAGES.length}
+        />
       </View>
     </Screen>
   );

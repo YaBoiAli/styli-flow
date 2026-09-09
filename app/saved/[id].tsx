@@ -1,18 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
+import { LoadingAnimation } from '@/components/LoadingAnimation';
 import { OutfitCard } from '@/components/OutfitCard';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { colors, spacing, typography } from '@/constants/theme';
+import { friendlyError } from '@/lib/errors';
 import {
   deleteSavedOutfit,
   fetchSavedOutfit,
@@ -35,7 +31,7 @@ export default function SavedOutfitDetailScreen() {
       const next = await fetchSavedOutfit(id);
       setDetail(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't open that fit.");
+      setError(friendlyError(err, "Couldn't open that fit."));
     } finally {
       setLoading(false);
     }
@@ -48,7 +44,7 @@ export default function SavedOutfitDetailScreen() {
   if (loading) {
     return (
       <Screen scroll={false} contentStyle={styles.centered}>
-        <ActivityIndicator color={colors.text} />
+        <LoadingAnimation message="Opening your fit..." stepIndex={1} stepCount={3} />
       </Screen>
     );
   }
@@ -58,11 +54,17 @@ export default function SavedOutfitDetailScreen() {
       <Screen
         contentStyle={styles.content}
         footer={
-          <PrimaryButton label="Back to Saved" onPress={() => router.replace('/saved')} />
+          <PrimaryButton
+            label="Back to Saved"
+            onPress={() => router.replace('/saved')}
+          />
         }
       >
         <BackButton fallbackHref="/saved" />
-        <Text style={styles.error}>{error ?? "Couldn't open that fit."}</Text>
+        <Text style={styles.errorTitle}>Couldn&apos;t open that fit</Text>
+        <Text style={styles.errorBody}>
+          {error ?? 'Try again from your saved closet.'}
+        </Text>
       </Screen>
     );
   }
@@ -91,9 +93,7 @@ export default function SavedOutfitDetailScreen() {
                       } catch (err) {
                         Alert.alert(
                           'Couldn’t delete',
-                          err instanceof Error
-                            ? err.message
-                            : 'Try again in a moment.',
+                          friendlyError(err, 'Try again in a moment.'),
                         );
                       }
                     })();
@@ -106,7 +106,10 @@ export default function SavedOutfitDetailScreen() {
       }
     >
       <BackButton fallbackHref="/saved" />
-      <OutfitCard outfit={savedDetailToOutfit(detail)} />
+      <OutfitCard
+        outfit={savedDetailToOutfit(detail)}
+        budget={detail.budget}
+      />
     </Screen>
   );
 }
@@ -120,8 +123,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  error: {
+  errorTitle: {
+    ...typography.title,
+    color: colors.text,
+  },
+  errorBody: {
     ...typography.body,
-    color: colors.danger,
+    color: colors.textSecondary,
   },
 });

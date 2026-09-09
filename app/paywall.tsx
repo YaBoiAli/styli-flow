@@ -107,7 +107,8 @@ export default function PaywallScreen() {
         <View style={styles.footer}>
           {!configured ? (
             <Text style={styles.error}>
-              RevenueCat is not configured. Add EXPO_PUBLIC_REVENUECAT_API_KEY.
+              Premium checkout isn&apos;t ready in this build yet. Restore may
+              still work once configured.
             </Text>
           ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -122,8 +123,8 @@ export default function PaywallScreen() {
             </Text>
           ) : configured ? (
             <Text style={styles.error}>
-              No Premium packages found. Check RevenueCat offerings for{' '}
-              vibe_premium_monthly / vibe_premium_yearly.
+              Premium plans aren&apos;t available right now. Try restore, or
+              check back soon.
             </Text>
           ) : null}
           <PrimaryButton
@@ -182,13 +183,14 @@ export default function PaywallScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: spacing.lg,
+    gap: spacing.xl,
+    paddingTop: spacing.sm,
   },
   kicker: {
     ...typography.caption,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 1.6,
+    letterSpacing: 1.8,
   },
   headline: {
     ...typography.hero,
@@ -201,7 +203,8 @@ const styles = StyleSheet.create({
   features: {
     backgroundColor: colors.surface,
     borderRadius: radii.xl,
-    padding: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
   featureRow: {

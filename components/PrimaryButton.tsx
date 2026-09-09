@@ -69,7 +69,7 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 56,
+    minHeight: 58,
     borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -80,18 +80,20 @@ const styles = StyleSheet.create({
   },
   secondary: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.borderSelected,
   },
   ghost: {
     backgroundColor: 'transparent',
+    minHeight: 48,
   },
   disabled: {
-    opacity: 0.4,
+    opacity: 0.38,
   },
   label: {
     ...typography.label,
     fontSize: 16,
+    letterSpacing: 0.15,
   },
   labelPrimary: {
     color: colors.background,

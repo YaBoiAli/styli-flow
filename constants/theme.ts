@@ -10,6 +10,8 @@ export const colors = {
   accent: '#2C2A28',
   accentSoft: '#D9D2C8',
   danger: '#C45C5C',
+  success: '#3D6B4F',
+  successSoft: '#E4EDE7',
   overlay: 'rgba(18, 18, 18, 0.04)',
 } as const;
 
@@ -30,12 +32,19 @@ export const radii = {
   full: 999,
 } as const;
 
+export const motion = {
+  fast: 220,
+  base: 360,
+  slow: 700,
+  step: 1100,
+} as const;
+
 export const typography = {
   brand: {
     fontFamily: 'Syne_700Bold',
-    fontSize: 48,
-    letterSpacing: -1.5,
-    lineHeight: 52,
+    fontSize: 52,
+    letterSpacing: -1.8,
+    lineHeight: 56,
   },
   hero: {
     fontFamily: 'Syne_700Bold',
@@ -75,7 +84,7 @@ export const typography = {
   },
   total: {
     fontFamily: 'Syne_700Bold',
-    fontSize: 24,
-    letterSpacing: -0.4,
+    fontSize: 28,
+    letterSpacing: -0.5,
   },
 } as const;

@@ -43,6 +43,7 @@ function mapProduct(product: DbProduct, reason: string): Product {
     imageUrl: product.image_url,
     category: toUiCategory(product.category),
     reason,
+    purchaseUrl: product.purchase_url || undefined,
   };
 }
 
