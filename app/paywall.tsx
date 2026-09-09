@@ -106,9 +106,9 @@ export default function PaywallScreen() {
       footer={
         <View style={styles.footer}>
           {!configured ? (
-            <Text style={styles.error}>
-              Premium checkout isn&apos;t ready in this build yet. Restore may
-              still work once configured.
+            <Text style={styles.hint}>
+              Premium unlocks on a native build with RevenueCat configured.
+              You can still explore the rest of Vibe.
             </Text>
           ) : null}
           {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -122,7 +122,7 @@ export default function PaywallScreen() {
                 .join(' · ')}
             </Text>
           ) : configured ? (
-            <Text style={styles.error}>
+            <Text style={styles.hint}>
               Premium plans aren&apos;t available right now. Try restore, or
               check back soon.
             </Text>
@@ -230,6 +230,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  hint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   error: {
     ...typography.caption,
