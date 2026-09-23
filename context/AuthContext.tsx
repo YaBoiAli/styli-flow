@@ -10,7 +10,6 @@ import {
 } from 'react';
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
-import { syncNotificationUser } from '@/lib/notifications';
 import type { Outfit } from '@/types';
 
 type AuthContextValue = {
@@ -78,10 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.subscription.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    void syncNotificationUser(user?.id ?? null);
-  }, [user?.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await getSupabase().auth.signInWithPassword({

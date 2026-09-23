@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
@@ -22,7 +22,6 @@ import {
   trackEvent,
 } from '@/lib/analytics';
 import { friendlyError } from '@/lib/errors';
-import { maybeAskNotificationPermission } from '@/lib/notifications';
 
 export default function OutfitScreen() {
   const router = useRouter();
@@ -37,7 +36,6 @@ export default function OutfitScreen() {
   const { isAuthenticated, user, setPendingSaveOutfit } = useAuth();
   const { isPremium, checkCanGenerate } = useSubscription();
   const [saving, setSaving] = useState(false);
-  const notificationPromptedRef = useRef(false);
 
   const analyticsBase = {
     style: selectedStyle ?? undefined,

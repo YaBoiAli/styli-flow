@@ -16,8 +16,6 @@ import { AuthProvider } from '@/context/AuthContext';
 import { PreferencesProvider } from '@/context/PreferencesContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { colors } from '@/constants/theme';
-import { initAnalytics, trackAppOpened } from '@/lib/analytics';
-import { initNotifications } from '@/lib/notifications';
 
 export { ErrorBoundary } from 'expo-router';
 
