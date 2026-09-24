@@ -5,6 +5,8 @@
  * - /functions/v1/generate-outfit → Deno :54331
  * - /functions/v1/resolve-brand   → Deno :54332
  * - /functions/v1/sync-catalog    → Deno :54333
+ * - /functions/v1/enrich-product  → Deno :54334
+ * - /functions/v1/enrich-catalog  → Deno :54335
  */
 import http from 'http';
 import crypto from 'crypto';
@@ -19,6 +21,8 @@ const POSTGREST = 'http://127.0.0.1:3001';
 const GENERATE_OUTFIT = 'http://127.0.0.1:54331';
 const RESOLVE_BRAND = 'http://127.0.0.1:54332';
 const SYNC_CATALOG = 'http://127.0.0.1:54333';
+const ENRICH_PRODUCT = 'http://127.0.0.1:54334';
+const ENRICH_CATALOG = 'http://127.0.0.1:54335';
 const JWT_SECRET = new TextEncoder().encode(
   'styli-local-dev-jwt-secret-at-least-32-chars!!',
 );
@@ -305,6 +309,16 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname.startsWith('/functions/v1/sync-catalog')) {
     proxy(req, res, SYNC_CATALOG, () => '/');
+    return;
+  }
+
+  if (url.pathname.startsWith('/functions/v1/enrich-product')) {
+    proxy(req, res, ENRICH_PRODUCT, () => '/');
+    return;
+  }
+
+  if (url.pathname.startsWith('/functions/v1/enrich-catalog')) {
+    proxy(req, res, ENRICH_CATALOG, () => '/');
     return;
   }
 

@@ -1,5 +1,10 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { normalizeDomain } from '../_shared/catalog/domain.ts';
+import {
+  attrKey,
+  currentSeason,
+  occasionFormality,
+} from '../_shared/catalog/fashionAttributes.ts';
 import { freshSince } from '../_shared/catalog/freshness.ts';
 
 export type ProductCategory = 'top' | 'bottom' | 'shoes' | 'outerwear' | 'accessory';
@@ -19,11 +24,17 @@ export type CatalogProduct = {
   colors: string[];
   material: string | null;
   description: string | null;
-  gender: 'men' | 'women' | 'unisex' | null;
+  gender: 'men' | 'women' | 'unisex' | 'unknown' | null;
   image_url: string;
   purchase_url: string;
   style_tags: string[];
   occasion_tags: string[];
+  aesthetic_tags: string[];
+  season_tags: string[];
+  fit: string | null;
+  silhouette: string | null;
+  pattern: string | null;
+  formality: string | null;
   source: string;
 };
 
@@ -46,7 +57,8 @@ export type CatalogResult =
 const CATEGORIES: ProductCategory[] = ['top', 'bottom', 'shoes', 'outerwear', 'accessory'];
 const PRODUCT_COLUMNS =
   'id, name, brand, brand_id, category, subcategory, price, currency, color, colors, material, ' +
-  'description, gender, image_url, purchase_url, style_tags, occasion_tags, source';
+  'description, gender, image_url, purchase_url, style_tags, occasion_tags, aesthetic_tags, ' +
+  'season_tags, fit, silhouette, pattern, formality, source';
 /** Hosted PostgREST caps responses at 1000 rows, so each category is fetched separately. */
 const ROWS_PER_CATEGORY = 1000;
 /** Budgets are entered in dollars; other currencies would make price checks meaningless. */
@@ -57,8 +69,8 @@ type BrandLookup = { id: string; name: string; domain: string; status: string };
 function genderFilter(gender: GenderPreference): string | null {
   // Null stays in the query because many live rows are untagged; matchesGenderPreference
   // drops women's-coded or men's-coded pieces after we can read the title.
-  if (gender === 'men') return 'gender.is.null,gender.in.(men,unisex)';
-  if (gender === 'women') return 'gender.is.null,gender.in.(women,unisex)';
+  if (gender === 'men') return 'gender.is.null,gender.in.(men,unisex,unknown)';
+  if (gender === 'women') return 'gender.is.null,gender.in.(women,unisex,unknown)';
   return null;
 }
 
@@ -120,6 +132,12 @@ function toProduct(row: Record<string, unknown>): CatalogProduct {
     colors: Array.isArray(row.colors) ? (row.colors as string[]) : [],
     style_tags: Array.isArray(row.style_tags) ? (row.style_tags as string[]) : [],
     occasion_tags: Array.isArray(row.occasion_tags) ? (row.occasion_tags as string[]) : [],
+    aesthetic_tags: Array.isArray(row.aesthetic_tags) ? (row.aesthetic_tags as string[]) : [],
+    season_tags: Array.isArray(row.season_tags) ? (row.season_tags as string[]) : [],
+    fit: typeof row.fit === 'string' ? row.fit : null,
+    silhouette: typeof row.silhouette === 'string' ? row.silhouette : null,
+    pattern: typeof row.pattern === 'string' ? row.pattern : null,
+    formality: typeof row.formality === 'string' ? row.formality : null,
   };
 }
 
@@ -305,7 +323,37 @@ function keywordHits(text: string, keywords: string[]): number {
   );
 }
 
-/** Relevance of a product to the vibe/occasion from its tags (demo) or its text (real). */
+function tagsMatch(productTags: string[], wanted: string[]): boolean {
+  const have = new Set(productTags.map(attrKey));
+  return wanted.some((tag) => have.has(attrKey(tag)));
+}
+
+const STYLE_FIT: Record<string, string[]> = {
+  streetwear: ['relaxed', 'oversized', 'loose'],
+  y2k: ['fitted', 'slim', 'oversized'],
+  'old money': ['regular', 'slim', 'fitted'],
+  old_money: ['regular', 'slim', 'fitted'],
+  minimalist: ['regular', 'relaxed', 'slim'],
+  preppy: ['regular', 'fitted'],
+  athleisure: ['relaxed', 'fitted'],
+  formal: ['slim', 'fitted', 'regular'],
+  grunge: ['oversized', 'relaxed', 'loose'],
+  'quiet luxury': ['regular', 'slim', 'fitted'],
+  quiet_luxury: ['regular', 'slim', 'fitted'],
+};
+
+const STYLE_SILHOUETTE: Record<string, string[]> = {
+  streetwear: ['baggy', 'boxy', 'oversized', 'wide_leg'],
+  y2k: ['cropped', 'baggy', 'low_rise', 'bodycon'],
+  'old money': ['straight', 'regular', 'slim'],
+  old_money: ['straight', 'regular', 'slim'],
+  minimalist: ['straight', 'regular', 'boxy'],
+  preppy: ['straight', 'regular'],
+  formal: ['straight', 'slim', 'regular'],
+  grunge: ['oversized', 'baggy', 'straight'],
+};
+
+/** Relevance of a product to the vibe/occasion from enriched attrs, tags, or text. */
 export function relevanceScore(
   product: CatalogProduct,
   styleTags: string[],
@@ -316,21 +364,87 @@ export function relevanceScore(
     product.subcategory,
     product.material,
     product.colors.join(' '),
+    product.pattern,
+    product.fit,
+    product.silhouette,
     product.description?.slice(0, 300),
   ]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
-  const tags = product.style_tags.map((tag) => tag.toLowerCase());
-  const occasionTag = occasion.toLowerCase();
+  const occasionTag = attrKey(occasion);
+  const season = currentSeason();
 
   let score = 0;
-  if (tags.some((tag) => styleTags.includes(tag))) score += 5;
-  if (product.occasion_tags.some((tag) => tag.toLowerCase() === occasionTag)) score += 2;
+  if (tagsMatch(product.style_tags, styleTags)) score += 6;
+  if (tagsMatch(product.aesthetic_tags, styleTags)) score += 4;
+  if (tagsMatch(product.occasion_tags, [occasionTag, occasion])) score += 3;
+  if (product.season_tags.some((tag) => attrKey(tag) === season || attrKey(tag) === 'all_season')) {
+    score += 2;
+  }
+  if (product.formality && occasionFormality(occasion).includes(product.formality as never)) {
+    score += 2;
+  }
+  for (const style of styleTags) {
+    const key = attrKey(style);
+    if (product.fit && (STYLE_FIT[style] ?? STYLE_FIT[key] ?? []).includes(product.fit)) score += 2;
+    if (
+      product.silhouette &&
+      (STYLE_SILHOUETTE[style] ?? STYLE_SILHOUETTE[key] ?? []).includes(product.silhouette)
+    ) {
+      score += 2;
+    }
+  }
   for (const [index, style] of styleTags.entries()) {
-    const hits = keywordHits(text, STYLE_KEYWORDS[style] ?? []);
+    const hits = keywordHits(text, STYLE_KEYWORDS[style] ?? STYLE_KEYWORDS[attrKey(style)] ?? []);
     score += index === 0 ? hits * 2 : hits;
   }
-  score += keywordHits(text, OCCASION_KEYWORDS[occasionTag] ?? []);
+  score += keywordHits(text, OCCASION_KEYWORDS[occasion.toLowerCase()] ?? OCCASION_KEYWORDS[occasionTag] ?? []);
   return score;
+}
+
+export type SkinTonePreference = 'fair' | 'light' | 'medium' | 'tan' | 'deep' | 'rich';
+
+const SKIN_TONE_COLORS: Record<SkinTonePreference, { prefer: string[]; avoid: string[] }> = {
+  fair: {
+    prefer: ['navy', 'burgundy', 'forest', 'emerald', 'charcoal', 'black', 'cobalt', 'wine', 'plum', 'ivory', 'white'],
+    avoid: ['beige', 'nude', 'orange', 'peach', 'yellow', 'camel'],
+  },
+  light: {
+    prefer: ['olive', 'camel', 'navy', 'rust', 'cream', 'forest', 'burgundy', 'rose', 'white', 'ivory'],
+    avoid: ['neon', 'yellow', 'orange'],
+  },
+  medium: {
+    prefer: ['gold', 'rust', 'olive', 'cream', 'terracotta', 'teal', 'white', 'camel', 'burgundy', 'navy'],
+    avoid: ['muddy', 'grey'],
+  },
+  tan: {
+    prefer: ['white', 'cream', 'gold', 'coral', 'olive', 'cobalt', 'emerald', 'ivory', 'navy'],
+    avoid: ['brown', 'khaki', 'tan', 'beige'],
+  },
+  deep: {
+    prefer: ['white', 'ivory', 'gold', 'emerald', 'cobalt', 'red', 'royal', 'yellow', 'fuchsia'],
+    avoid: ['brown', 'beige', 'khaki', 'olive'],
+  },
+  rich: {
+    prefer: ['white', 'gold', 'emerald', 'cobalt', 'red', 'fuchsia', 'royal', 'cream', 'silver'],
+    avoid: ['brown', 'beige', 'khaki', 'tan'],
+  },
+};
+
+export function parseSkinTone(value: unknown): SkinTonePreference | null {
+  if (typeof value !== 'string') return null;
+  const key = value.trim().toLowerCase();
+  return key in SKIN_TONE_COLORS ? (key as SkinTonePreference) : null;
+}
+
+/** Extra points when a product's colors sit well on the shopper's complexion. */
+export function skinToneColorScore(
+  product: CatalogProduct,
+  skinTone: SkinTonePreference | null,
+): number {
+  if (!skinTone) return 0;
+  const text = [product.color, ...product.colors, product.name].filter(Boolean).join(' ').toLowerCase();
+  const guide = SKIN_TONE_COLORS[skinTone];
+  return keywordHits(text, guide.prefer) * 2 - keywordHits(text, guide.avoid);
 }

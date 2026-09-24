@@ -38,6 +38,8 @@ supabase/
     generate-outfit/      # ranks real catalog products (never invents them)
     resolve-brand/        # user-added brand: detect source, import, mark supported
     sync-catalog/         # daily refresh of due brands
+    enrich-product/       # Gemini classifies one existing product (never invents one)
+    enrich-catalog/       # batch: new / updated / schema-changed products only
     _shared/catalog/      # ProductSource layer (API, affiliate, Shopify, JSON-LD, …)
   cron/schedule_sync_catalog.sql
   seed.sql                # 148 demo products (`source = 'demo'`)
@@ -60,7 +62,9 @@ Copy `.env.example` → `.env`:
 | `ALLOW_HEURISTIC_FALLBACK` | local | `true` for offline generation without Gemini |
 | `ALLOW_DEMO_CATALOG` | local | `true` only in development. Demo rows are never mixed with live products. |
 | `CATALOG_BOT_CONTACT` | server | URL or email in the catalog bot User-Agent |
-| `CATALOG_SYNC_SECRET` | server | Shared secret for `sync-catalog` (`x-sync-secret` header) |
+| `CATALOG_SYNC_SECRET` | server | Shared secret for `sync-catalog` / enrich functions (`x-sync-secret` header) |
+| `ENRICH_BATCH_SIZE` | optional | Products per `enrich-catalog` run (default 10) |
+| `ENRICH_DELAY_MS` | optional | Pause between Gemini classify calls (default 400) |
 | `EXTERNAL_PRODUCT_SEARCH_PROVIDER` | optional | Set to `serpapi` to enable the last-resort search source |
 | `SERPAPI_API_KEY` | optional | Server-only; used only when the provider above is `serpapi` |
 | Affiliate feed env vars | optional | Named in `brands.source_config.affiliate.feed_url_env` (never store the URL or keys in the DB) |
@@ -89,6 +93,17 @@ npm run start
 npm run test:auth
 npm run test:subscription
 npm run test:generate   # requires generate-outfit function + catalog
+npx -y deno run --allow-net --allow-env --allow-read scripts/enrich-sample.ts
+```
+
+Gemini classifies existing catalog rows only (name, description, brand, category, image). New products, changed name/description/image, or an `ENRICHMENT_VERSION` bump are re-enriched. A daily stock/price refresh is not.
+
+```bash
+# Batch the backlog (service role or x-sync-secret)
+curl -X POST "$SUPABASE_URL/functions/v1/enrich-catalog" \
+  -H "x-sync-secret: $CATALOG_SYNC_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"limit":10}'
 ```
 
 ## iOS with Expo EAS
@@ -129,7 +144,7 @@ npx -y deno run --allow-net --allow-env scripts/probe-brands.ts --approved
 1. `npx supabase db push` (applies `20260924000000_catalog_sources.sql`; additive, keeps existing product IDs and saved outfits)
 2. `npx supabase db query -f supabase/seed.sql` if you still want the 148 demo rows locally
 3. Set function secrets: `GEMINI_API_KEY`, `CATALOG_SYNC_SECRET`, `CATALOG_BOT_CONTACT`. Leave `ALLOW_DEMO_CATALOG` unset in production.
-4. `npx supabase functions deploy generate-outfit resolve-brand sync-catalog`
+4. `npx supabase functions deploy generate-outfit resolve-brand sync-catalog enrich-product enrich-catalog`
 5. Store `project_url` and `catalog_sync_secret` in Vault, then run `supabase/cron/schedule_sync_catalog.sql` once so brands refresh about once a day.
 
 ## Remaining known limitations

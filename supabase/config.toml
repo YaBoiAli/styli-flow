@@ -16,6 +16,12 @@ sql_paths = ["./seed.sql"]
 [functions.sync-catalog]
 verify_jwt = false
 
+[functions.enrich-catalog]
+verify_jwt = false
+
+[functions.enrich-product]
+verify_jwt = false
+
 # Anon key is accepted as Bearer so signed-out users can add a brand.
 [functions.resolve-brand]
 verify_jwt = true

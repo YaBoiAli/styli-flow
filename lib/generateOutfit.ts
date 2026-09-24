@@ -9,6 +9,7 @@ import type {
   Occasion,
   Outfit,
   Product,
+  SkinTone,
   Style,
 } from '@/types';
 
@@ -25,6 +26,7 @@ export type GenerateOutfitRequest = {
   selectedBrands?: string[];
   brandRequests?: BrandRequest[];
   gender?: GenderPreference;
+  skinTone?: SkinTone | null;
   age?: number | null;
 };
 
@@ -175,6 +177,7 @@ export async function generateOutfit(
         measurements: measurementsPayload(request.measurements),
         inspiration: inspirationPayload(request.inspirationSources),
         gender: request.gender ?? 'any',
+        skin_tone: request.skinTone ?? null,
         age: request.age ?? null,
         brand_preference: {
           mode: request.selectedBrands?.length ? 'selected' : 'no_preference',

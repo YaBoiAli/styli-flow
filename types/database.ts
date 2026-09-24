@@ -36,12 +36,28 @@ export type Product = {
   colors: string[];
   sizes: string[];
   material: string | null;
-  gender: 'men' | 'women' | 'unisex' | null;
+  gender: 'men' | 'women' | 'unisex' | 'unknown' | null;
   availability: 'in_stock' | 'out_of_stock' | 'unknown' | 'discontinued';
   image_url: string;
   purchase_url: string;
   style_tags: string[];
   occasion_tags: string[];
+  aesthetic_tags: string[];
+  season_tags: string[];
+  fit: string | null;
+  silhouette: string | null;
+  pattern: string | null;
+  formality: string | null;
+  fit_confidence: number | null;
+  silhouette_confidence: number | null;
+  gender_confidence: number | null;
+  style_confidence: number | null;
+  ai_enriched: boolean;
+  ai_enriched_at: string | null;
+  enrichment_version: number | null;
+  enrichment_input_hash: string | null;
+  enrichment_error: string | null;
+  content_fingerprint: string;
   /** 'demo' rows are development data and never recommended in production. */
   source: 'demo' | CatalogSourceType;
   source_product_id: string | null;
@@ -65,7 +81,23 @@ type ProductDefaultedColumns =
   | 'availability'
   | 'source'
   | 'source_product_id'
-  | 'last_checked';
+  | 'last_checked'
+  | 'aesthetic_tags'
+  | 'season_tags'
+  | 'fit'
+  | 'silhouette'
+  | 'pattern'
+  | 'formality'
+  | 'fit_confidence'
+  | 'silhouette_confidence'
+  | 'gender_confidence'
+  | 'style_confidence'
+  | 'ai_enriched'
+  | 'ai_enriched_at'
+  | 'enrichment_version'
+  | 'enrichment_input_hash'
+  | 'enrichment_error'
+  | 'content_fingerprint';
 
 /** Database row for public.brands; `supported` only after real products were imported. */
 export type BrandRow = {
@@ -199,7 +231,12 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      products_due_for_enrichment: {
+        Args: { p_version: number; p_limit?: number };
+        Returns: Product[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

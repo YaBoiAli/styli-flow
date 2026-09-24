@@ -38,6 +38,7 @@ export default function GenerationScreen() {
     shoeBudget,
     bodyMeasurements,
     gender,
+    skinTone,
     age,
     inspirationSources,
     selectedBrands,
@@ -115,6 +116,7 @@ export default function GenerationScreen() {
           selectedBrands,
           brandRequests,
           gender: gender ?? 'any',
+          skinTone,
           age,
         });
         if (cancelled) return;
@@ -168,6 +170,7 @@ export default function GenerationScreen() {
     shoeBudget,
     bodyMeasurements,
     gender,
+    skinTone,
     age,
     inspirationSources,
     selectedBrands,

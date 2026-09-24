@@ -94,6 +94,18 @@ export type BrandRequest = {
 /** Which department to shop; `any` allows both. */
 export type GenderPreference = 'men' | 'women' | 'any';
 
+/** Fashion-friendly complexion scale used for color matching. */
+export type SkinTone = 'fair' | 'light' | 'medium' | 'tan' | 'deep' | 'rich';
+
+export const SKIN_TONES: Array<{ value: SkinTone; label: string; swatch: string }> = [
+  { value: 'fair', label: 'Fair', swatch: '#F3D2C4' },
+  { value: 'light', label: 'Light', swatch: '#E0B089' },
+  { value: 'medium', label: 'Medium', swatch: '#C68642' },
+  { value: 'tan', label: 'Tan', swatch: '#8D5524' },
+  { value: 'deep', label: 'Deep', swatch: '#5C3310' },
+  { value: 'rich', label: 'Rich', swatch: '#3B2214' },
+];
+
 export type UserPreferences = {
   selectedStyle: Style | null;
   selectedOccasion: Occasion | null;
@@ -103,6 +115,7 @@ export type UserPreferences = {
   shoeBudget: number | null;
   bodyMeasurements: BodyMeasurements | null;
   gender: GenderPreference | null;
+  skinTone: SkinTone | null;
   /** Whole years; set on the You step before Fit. */
   age: number | null;
   inspirationSources: InspirationSource[];

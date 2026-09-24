@@ -38,7 +38,9 @@
   "workspace": {
     "packageJson": {
       "dependencies": [
+        "npm:@expo-google-fonts/bodoni-moda@~0.4.2",
         "npm:@expo-google-fonts/dm-sans@~0.4.2",
+        "npm:@expo-google-fonts/libre-bodoni@~0.4.2",
         "npm:@expo-google-fonts/syne@~0.4.2",
         "npm:@expo/vector-icons@^15.0.2",
         "npm:@react-native-async-storage/async-storage@2.2.0",

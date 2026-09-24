@@ -17,6 +17,7 @@
   "exclude": [
     "node_modules",
     "supabase/functions",
-    "scripts/probe-brands.ts"
+    "scripts/probe-brands.ts",
+    "scripts/enrich-sample.ts"
   ]
 }

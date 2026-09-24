@@ -7,7 +7,10 @@ import {
   inferProductGender,
   loadCatalog,
   type ProductCategory,
+  parseSkinTone,
   relevanceScore,
+  skinToneColorScore,
+  type SkinTonePreference,
 } from './catalog.ts';
 
 type Product = CatalogProduct;
@@ -45,6 +48,7 @@ type GenerateRequest = {
   inspiration?: InspirationInput[];
   brand_preference?: BrandPreference;
   gender?: GenderPreference;
+  skin_tone?: SkinTonePreference | null;
   age?: number | null;
 };
 
@@ -220,6 +224,7 @@ function filterCandidates(
   occasion: string,
   budget: BudgetPlan,
   excludeIds: Set<string>,
+  skinTone: SkinTonePreference | null,
 ): Product[] {
   const styleTags = styleAliasTags(style);
 
@@ -228,7 +233,10 @@ function filterCandidates(
       !excludeIds.has(product.id) && asNumber(product.price) <= priceCap(budget, product),
   );
   const scores = new Map(
-    affordable.map((product) => [product.id, relevanceScore(product, styleTags, occasion)]),
+    affordable.map((product) => [
+      product.id,
+      relevanceScore(product, styleTags, occasion) + skinToneColorScore(product, skinTone),
+    ]),
   );
   const MIN_STYLE_SCORE = 2;
   const tagged = affordable.filter((product) =>
@@ -280,9 +288,15 @@ function candidatesForPrompt(products: Product[]) {
     price: asNumber(product.price),
     colors: product.colors.length ? product.colors.slice(0, 4) : [product.color],
     ...(product.material ? { material: product.material.slice(0, 80) } : {}),
+    ...(product.fit ? { fit: product.fit } : {}),
+    ...(product.silhouette ? { silhouette: product.silhouette } : {}),
+    ...(product.pattern ? { pattern: product.pattern } : {}),
+    ...(product.formality ? { formality: product.formality } : {}),
     ...(product.description ? { description: product.description.slice(0, 160) } : {}),
     ...(product.style_tags.length ? { style_tags: product.style_tags } : {}),
+    ...(product.aesthetic_tags.length ? { aesthetic_tags: product.aesthetic_tags } : {}),
     ...(product.occasion_tags.length ? { occasion_tags: product.occasion_tags } : {}),
+    ...(product.season_tags.length ? { season_tags: product.season_tags } : {}),
   }));
 }
 
@@ -342,6 +356,7 @@ async function callGemini(params: {
   stricter: boolean;
   context: StylingContext;
   gender: GenderPreference;
+  skinTone: SkinTonePreference | null;
 }): Promise<AiOutfit> {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) {
@@ -358,7 +373,8 @@ async function callGemini(params: {
   const system = `You are Styli, an expert fashion stylist.
 The candidates are real products retrieved from the user's chosen stores.
 Your job is only to choose and rank among them: choose a complete outfit ONLY from the provided candidate products.
-Never invent products, IDs, names, prices, images, or links.
+Return product_id values from that list only.
+Never invent products, IDs, names, prices, images, brands, or links.
 Return ONLY valid JSON with this shape:
 {
   "outfit_name": string,
@@ -377,6 +393,7 @@ Rules:
 - If shoe_budget is a number, shoes are budgeted separately: the shoes item must cost <= shoe_budget, and all other selected items together must cost <= budget.
 - Do not include duplicate categories.
 - If body measurements are provided, favor cuts and silhouettes that flatter them.
+- If skin_tone is set, prefer candidate colors that flatter that complexion. Do not invent colors or products.
 - If inspiration links are provided, use them only as style direction; you cannot open them.
 - Candidates are already limited to the user's brands and fit preference; judge them on style, color and occasion.`;
 
@@ -384,6 +401,7 @@ Rules:
     style: params.style,
     occasion: params.occasion,
     shop_for: shopFor,
+    skin_tone: params.skinTone,
     budget: params.budget.outfit,
     shoe_budget: params.budget.shoes,
     exclude_product_ids: params.excludeIds,
@@ -455,9 +473,11 @@ function heuristicOutfit(
   candidates: Product[],
   excludeIds: Set<string>,
   attempt: number,
+  skinTone: SkinTonePreference | null,
 ): AiOutfit {
   const styleTags = styleAliasTags(style);
-  const scoreOf = (product: Product) => relevanceScore(product, styleTags, occasion);
+  const scoreOf = (product: Product) =>
+    relevanceScore(product, styleTags, occasion) + skinToneColorScore(product, skinTone);
   const grouped = groupByCategory(candidates);
 
   const rank = (list: Product[]) =>
@@ -667,6 +687,7 @@ async function handler(req: Request): Promise<Response> {
     const context = readStylingContext(body);
     const gender: GenderPreference =
       body.gender === 'men' || body.gender === 'women' ? body.gender : 'any';
+    const skinTone = parseSkinTone(body.skin_tone);
     const selectingBrands = context.preferredBrands.length > 0;
     const localFn = Number.isFinite(Number(Deno.env.get('EDGE_FUNCTION_PORT') ?? ''));
 
@@ -695,6 +716,7 @@ async function handler(req: Request): Promise<Response> {
       occasion,
       budget,
       excludeIds,
+      skinTone,
     );
 
     let workingCandidates = candidates;
@@ -712,6 +734,7 @@ async function handler(req: Request): Promise<Response> {
           occasion,
           budget,
           new Set(),
+          skinTone,
         );
       }
       const regrouped = groupByCategory(workingCandidates);
@@ -744,6 +767,7 @@ async function handler(req: Request): Promise<Response> {
           stricter,
           context,
           gender,
+          skinTone,
         };
         const heuristicArgs = [
           style,
@@ -752,6 +776,7 @@ async function handler(req: Request): Promise<Response> {
           workingCandidates,
           excludeIds,
           attempt - 1,
+          skinTone,
         ] as const;
         const ai = hasGemini
           ? await callGemini(geminiArgs).catch((err) => {

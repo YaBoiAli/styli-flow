@@ -59,6 +59,7 @@
     "db:seed": "node --env-file=.env scripts/seed-products.mjs",
     "db:verify": "node --env-file=.env scripts/verify-supabase.mjs",
     "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
+    "test:enrich": "npx -y deno run --allow-net --allow-env --allow-read scripts/enrich-sample.ts",
     "test:auth": "node --env-file=.env scripts/test-auth-saved.mjs",
     "test:subscription": "node --env-file=.env scripts/test-subscription.mjs",
     "fn:serve": "bash scripts/serve-generate-outfit.sh",

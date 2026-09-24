@@ -15,7 +15,13 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { usePreferences } from '@/context/PreferencesContext';
 import { colors, radii, spacing, typography } from '@/constants/theme';
-import type { BodyMeasurements, GenderPreference, MeasurementUnit } from '@/types';
+import {
+  SKIN_TONES,
+  type BodyMeasurements,
+  type GenderPreference,
+  type MeasurementUnit,
+  type SkinTone,
+} from '@/types';
 
 const GENDER_OPTIONS: Array<{ value: GenderPreference; label: string }> = [
   { value: 'men', label: 'Men' },
@@ -50,7 +56,8 @@ const EMPTY_ADVANCED: AdvancedDraft = {
 
 export default function MeasurementsScreen() {
   const router = useRouter();
-  const { bodyMeasurements, setBodyMeasurements, gender, setGender } = usePreferences();
+  const { bodyMeasurements, setBodyMeasurements, gender, setGender, skinTone, setSkinTone } =
+    usePreferences();
   const initial = draftFromSaved(bodyMeasurements);
 
   const [unit, setUnit] = useState<MeasurementUnit>(initial.unit);
@@ -129,7 +136,7 @@ export default function MeasurementsScreen() {
         <PrimaryButton
           label="Continue"
           testID="btn-continue-measurements"
-          disabled={!gender}
+          disabled={!gender || !skinTone}
           onPress={handleContinue}
         />
       }
@@ -153,6 +160,20 @@ export default function MeasurementsScreen() {
               selected={gender === option.value}
               onPress={() => setGender(option.value)}
               testID={`chip-gender-${option.value}`}
+            />
+          ))}
+        </View>
+        <Text style={styles.fieldLabel}>Skin tone</Text>
+        <Text style={styles.skinHint}>
+          Helps the stylist pick colors that sit well on you.
+        </Text>
+        <View style={styles.skinRow}>
+          {SKIN_TONES.map((option) => (
+            <SkinToneSwatch
+              key={option.value}
+              option={option}
+              selected={skinTone === option.value}
+              onPress={() => setSkinTone(option.value)}
             />
           ))}
         </View>
@@ -245,6 +266,38 @@ export default function MeasurementsScreen() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </Screen>
+  );
+}
+
+function SkinToneSwatch({
+  option,
+  selected,
+  onPress,
+}: {
+  option: { value: SkinTone; label: string; swatch: string };
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={option.label}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={styles.skinOption}
+      testID={`chip-skin-${option.value}`}
+    >
+      <View
+        style={[
+          styles.skinSwatch,
+          { backgroundColor: option.swatch },
+          selected && styles.skinSwatchSelected,
+        ]}
+      />
+      <Text style={[styles.skinLabel, selected && styles.skinLabelSelected]}>
+        {option.label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -516,6 +569,38 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   chipLabelSelected: {
+    color: colors.text,
+  },
+  skinHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  skinRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  skinOption: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    width: 52,
+  },
+  skinSwatch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  skinSwatchSelected: {
+    borderColor: colors.borderSelected,
+  },
+  skinLabel: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  skinLabelSelected: {
     color: colors.text,
   },
   fields: {

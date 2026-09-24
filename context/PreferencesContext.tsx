@@ -14,6 +14,7 @@ import type {
   InspirationSource,
   Occasion,
   Outfit,
+  SkinTone,
   Style,
   UserPreferences,
 } from '@/types';
@@ -26,6 +27,7 @@ type PreferencesContextValue = UserPreferences & {
   setShoeBudget: (budget: number | null) => void;
   setBodyMeasurements: (measurements: BodyMeasurements) => void;
   setGender: (gender: GenderPreference) => void;
+  setSkinTone: (tone: SkinTone) => void;
   setAge: (age: number) => void;
   addInspirationSource: (source: InspirationSource) => void;
   replaceInspirationSource: (id: string, source: InspirationSource) => void;
@@ -58,6 +60,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [bodyMeasurements, setBodyMeasurementsState] =
     useState<BodyMeasurements | null>(null);
   const [gender, setGenderState] = useState<GenderPreference | null>(null);
+  const [skinTone, setSkinToneState] = useState<SkinTone | null>(null);
   const [age, setAgeState] = useState<number | null>(null);
   const [inspirationSources, setInspirationSources] = useState<
     InspirationSource[]
@@ -91,6 +94,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const setGender = useCallback((next: GenderPreference) => {
     setGenderState(next);
+  }, []);
+
+  const setSkinTone = useCallback((next: SkinTone) => {
+    setSkinToneState(next);
   }, []);
 
   const setAge = useCallback((next: number) => {
@@ -179,6 +186,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setShoeBudgetState(null);
     setBodyMeasurementsState(null);
     setGenderState(null);
+    setSkinToneState(null);
     setAgeState(null);
     setInspirationSources([]);
     setSelectedBrands([]);
@@ -197,6 +205,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       shoeBudget,
       bodyMeasurements,
       gender,
+      skinTone,
       age,
       inspirationSources,
       selectedBrands,
@@ -208,6 +217,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setShoeBudget,
       setBodyMeasurements,
       setGender,
+      setSkinTone,
       setAge,
       addInspirationSource,
       replaceInspirationSource,
@@ -235,6 +245,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       shoeBudget,
       bodyMeasurements,
       gender,
+      skinTone,
       age,
       inspirationSources,
       selectedBrands,
@@ -245,6 +256,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setShoeBudget,
       setBodyMeasurements,
       setGender,
+      setSkinTone,
       setAge,
       addInspirationSource,
       replaceInspirationSource,
