@@ -11,6 +11,7 @@ export const ANALYTICS_EVENTS = [
   'inspiration_added',
   'brand_preference_selected',
   'brand_requested',
+  'brand_request_checked',
   'onboarding_completed',
   'outfit_generation_started',
   'outfit_generated',

@@ -7,9 +7,9 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors, spacing } from '@/constants/theme';
+import { colors, spacing, tabBarLayout } from '@/constants/theme';
 
 type ScreenProps = {
   children: ReactNode;
@@ -17,6 +17,11 @@ type ScreenProps = {
   scroll?: boolean;
   style?: ViewStyle;
   contentStyle?: ViewStyle;
+  footerStyle?: ViewStyle;
+  /** Lets a screen-level wallpaper show through. Used only on Get Started. */
+  transparent?: boolean;
+  /** Extra space so content and footers clear the floating tab pill. */
+  overTabs?: boolean;
 };
 
 export function Screen({
@@ -25,31 +30,53 @@ export function Screen({
   scroll = true,
   style,
   contentStyle,
+  footerStyle,
+  transparent = false,
+  overTabs = false,
 }: ScreenProps) {
+  const insets = useSafeAreaInsets();
+  const tabClearance =
+    Math.max(insets.bottom, tabBarLayout.minSafe) +
+    tabBarLayout.lift +
+    tabBarLayout.height +
+    tabBarLayout.gap;
+  const aboveTabs = overTabs ? { paddingBottom: tabClearance } : null;
+
   const body = scroll ? (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={[styles.content, contentStyle]}
+      contentContainerStyle={[styles.content, aboveTabs, contentStyle]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, styles.fill, contentStyle]}>{children}</View>
+    <View style={[styles.content, styles.fill, aboveTabs, contentStyle]}>{children}</View>
   );
 
   const content = (
     <View style={styles.column}>
       <View style={styles.body}>{body}</View>
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? (
+        <View
+          style={[
+            styles.footer,
+            transparent && styles.footerTransparent,
+            aboveTabs,
+            footerStyle,
+          ]}
+        >
+          {footer}
+        </View>
+      ) : null}
     </View>
   );
 
   return (
     <SafeAreaView
-      style={[styles.safe, style]}
-      edges={['top', 'left', 'right', 'bottom']}
+      style={[styles.safe, transparent && styles.safeTransparent, style]}
+      edges={overTabs || transparent ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
     >
       {Platform.OS === 'ios' ? (
         <KeyboardAvoidingView style={styles.fill} behavior="padding">
@@ -77,7 +104,6 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     minHeight: 0,
-    overflow: 'hidden',
   },
   scroll: {
     flex: 1,
@@ -98,5 +124,12 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     gap: spacing.sm,
+  },
+  safeTransparent: {
+    backgroundColor: 'transparent',
+  },
+  footerTransparent: {
+    backgroundColor: 'transparent',
+    borderTopWidth: 0,
   },
 });

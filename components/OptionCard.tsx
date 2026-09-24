@@ -44,6 +44,6 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   labelSelected: {
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: typography.label.fontFamily,
   },
 });

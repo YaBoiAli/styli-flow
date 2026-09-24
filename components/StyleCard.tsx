@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
+import type { ComponentProps } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/constants/theme';
-import { isPremiumStyle } from '@/constants/subscriptions';
 import type { Style } from '@/types';
 
 type StyleCardProps = {
@@ -27,9 +28,24 @@ const styleHints: Record<Style, string> = {
   'Elevated Streetwear': 'Polished urban edge',
 };
 
-export function StyleCard({ styleName, selected, onPress }: StyleCardProps) {
-  const premium = isPremiumStyle(styleName);
+const styleIcons: Record<Style, ComponentProps<typeof Ionicons>['name']> = {
+  Streetwear: 'flame-outline',
+  Y2K: 'disc-outline',
+  'Old Money': 'diamond-outline',
+  Minimalist: 'remove-outline',
+  Preppy: 'school-outline',
+  Athleisure: 'barbell-outline',
+  Casual: 'cafe-outline',
+  Formal: 'briefcase-outline',
+  'Clean Girl': 'water-outline',
+  Grunge: 'musical-notes-outline',
+  Runway: 'aperture-outline',
+  'Quiet Luxury': 'wine-outline',
+  'Dark Academia': 'book-outline',
+  'Elevated Streetwear': 'footsteps-outline',
+};
 
+export function StyleCard({ styleName, selected, onPress }: StyleCardProps) {
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -39,13 +55,12 @@ export function StyleCard({ styleName, selected, onPress }: StyleCardProps) {
       style={[styles.card, selected && styles.cardSelected]}
       testID={`style-card-${styleName}`}
     >
-      <View style={styles.topRow}>
-        <View style={[styles.swatch, selected && styles.swatchSelected]} />
-        {premium ? (
-          <Text style={styles.premiumBadge} testID={`premium-badge-${styleName}`}>
-            Pro
-          </Text>
-        ) : null}
+      <View style={[styles.swatch, selected && styles.swatchSelected]}>
+        <Ionicons
+          name={styleIcons[styleName]}
+          size={22}
+          color={selected ? colors.background : colors.text}
+        />
       </View>
       <Text style={[styles.title, selected && styles.titleSelected]}>
         {styleName}
@@ -64,50 +79,38 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1.5,
     borderColor: 'transparent',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 4,
   },
   cardSelected: {
     borderColor: colors.borderSelected,
     backgroundColor: colors.surfaceMuted,
   },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-  },
   swatch: {
-    width: 26,
-    height: 26,
+    width: 44,
+    height: 44,
     borderRadius: radii.sm,
     backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
   swatchSelected: {
     backgroundColor: colors.accent,
-  },
-  premiumBadge: {
-    ...typography.caption,
-    color: colors.background,
-    backgroundColor: colors.accent,
-    overflow: 'hidden',
-    borderRadius: radii.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    fontFamily: 'DMSans_500Medium',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
   },
   title: {
     ...typography.label,
     fontSize: 16,
     color: colors.text,
+    textAlign: 'center',
   },
   titleSelected: {
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: typography.label.fontFamily,
   },
   hint: {
     ...typography.caption,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
 });

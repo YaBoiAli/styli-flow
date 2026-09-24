@@ -9,17 +9,23 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
+import { BrandCard } from '@/components/BrandCard';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { APPROVED_BRANDS, NO_PREFERENCE_LABEL } from '@/constants/brands';
+import {
+  APPROVED_BRAND_DETAILS,
+  APPROVED_BRANDS,
+  NO_PREFERENCE_LABEL,
+} from '@/constants/brands';
 import { FREE_GENERATION_LIMIT } from '@/constants/subscriptions';
 import { colors, radii, spacing, typography } from '@/constants/theme';
 import {
@@ -27,8 +33,10 @@ import {
   premiumStatusLabel,
   trackEvent,
 } from '@/lib/analytics';
+import { type BrandStatus, fetchBrandStatuses, resolveBrand } from '@/lib/brandCatalog';
 import { submitBrandRequest } from '@/lib/brandRequests';
 import { normalizeWebUrl } from '@/lib/urls';
+import type { BrandRequest } from '@/types';
 
 export default function BrandsScreen() {
   const router = useRouter();
@@ -43,11 +51,58 @@ export default function BrandsScreen() {
     toggleBrand,
     clearBrands,
     addBrandRequest,
+    updateBrandRequest,
     removeBrandRequest,
   } = usePreferences();
   const { isPremium, checkCanGenerate, generationsRemaining } = useSubscription();
   const [checking, setChecking] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [brandsOpen, setBrandsOpen] = useState(selectedBrands.length > 0);
+  const [statuses, setStatuses] = useState<Map<string, BrandStatus> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void fetchBrandStatuses().then((result) => {
+      if (active) setStatuses(result);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Without catalog info (offline / not deployed) every brand stays selectable.
+  const isUnavailable = (name: string) =>
+    statuses !== null && statuses.get(name)?.status !== 'supported';
+  const orderedBrands = statuses
+    ? [...APPROVED_BRAND_DETAILS].sort(
+        (a, b) => Number(isUnavailable(a.name)) - Number(isUnavailable(b.name)),
+      )
+    : APPROVED_BRAND_DETAILS;
+  const unavailableCount = statuses
+    ? APPROVED_BRAND_DETAILS.filter((brand) => isUnavailable(brand.name)).length
+    : 0;
+  const selectedUnsupported =
+    statuses !== null &&
+    selectedBrands.length > 0 &&
+    selectedBrands.every((name) => isUnavailable(name));
+  const hasSupportedRequest = brandRequests.some((request) => request.status === 'supported');
+  // Never send the user to generation when every picked store is still unsupported.
+  const canBuild = !selectedUnsupported || hasSupportedRequest;
+
+  async function checkBrand(request: BrandRequest) {
+    updateBrandRequest(request.id, { status: 'checking', statusReason: null });
+    const result = await resolveBrand({
+      name: request.name,
+      website: request.website,
+      requestId: request.id,
+    });
+    updateBrandRequest(request.id, {
+      status: result.status,
+      productCount: result.productCount,
+      statusReason: result.reason,
+    });
+    trackEvent('brand_request_checked', { brand: request.name, status: result.status });
+  }
 
   useEffect(() => {
     if (!selectedStyle) {
@@ -105,7 +160,11 @@ export default function BrandsScreen() {
       contentStyle={styles.content}
       footer={
         <View style={styles.footer}>
-          {!isPremium ? (
+          {selectedUnsupported && !hasSupportedRequest ? (
+            <Text style={styles.quota} testID="brands-unavailable-hint">
+              Those stores aren&apos;t available yet. Pick a ready brand or use No Preference.
+            </Text>
+          ) : !isPremium ? (
             <Text style={styles.quota} testID="generation-quota">
               {generationsRemaining === Number.POSITIVE_INFINITY
                 ? 'Unlimited AI fits'
@@ -118,6 +177,7 @@ export default function BrandsScreen() {
             label="Build My Fit"
             testID="btn-build-fit"
             loading={checking}
+            disabled={!canBuild}
             onPress={() => void handleBuild()}
           />
         </View>
@@ -128,53 +188,109 @@ export default function BrandsScreen() {
         <OnboardingProgress step="Brands" />
         <Text style={styles.title}>Where should we shop?</Text>
         <Text style={styles.subtitle}>
-          Choose the brands you&apos;d like us to use.
+          Shop everywhere, or just your favorites.
         </Text>
       </View>
 
-      <View style={styles.chips}>
-        <BrandChip
-          label={NO_PREFERENCE_LABEL}
-          selected={noPreference}
-          onPress={handleNoPreference}
-        />
-        {APPROVED_BRANDS.map((brand) => (
-          <BrandChip
-            key={brand}
-            label={brand}
-            selected={selectedBrands.includes(brand)}
-            onPress={() => handleBrandPress(brand)}
+      <NoPreferenceCard selected={noPreference} onPress={handleNoPreference} />
+
+      <View style={styles.brandsSection}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityState={{ expanded: brandsOpen }}
+          activeOpacity={0.9}
+          onPress={() => setBrandsOpen((open) => !open)}
+          style={[styles.brandsToggle, !noPreference && styles.brandsToggleActive]}
+          testID="btn-toggle-brands"
+        >
+          <View style={styles.brandsToggleCopy}>
+            <Text style={styles.brandsToggleTitle}>Pick your brands</Text>
+            <Text style={styles.brandsToggleHint}>
+              {noPreference
+                ? 'Only shop the labels you love.'
+                : `${selectedBrands.length} ${selectedBrands.length === 1 ? 'brand' : 'brands'} selected`}
+            </Text>
+          </View>
+          <Ionicons
+            name={brandsOpen ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={colors.textSecondary}
           />
-        ))}
+        </TouchableOpacity>
+
+        {brandsOpen ? (
+          <>
+            <View style={styles.grid}>
+              {orderedBrands.map((brand) => (
+                <View key={brand.name} style={styles.gridItem}>
+                  <BrandCard
+                    brand={brand}
+                    selected={selectedBrands.includes(brand.name)}
+                    unavailable={isUnavailable(brand.name)}
+                    onPress={() => handleBrandPress(brand.name)}
+                  />
+                </View>
+              ))}
+            </View>
+            {unavailableCount > 0 ? (
+              <Text style={styles.requestNote}>
+                We only shop stores whose real catalog we can read. Faded brands
+                aren&apos;t available yet.
+              </Text>
+            ) : null}
+          </>
+        ) : null}
       </View>
 
-      <Text style={styles.selectionNote}>
-        {noPreference
-          ? 'Shopping every brand on the list.'
-          : `Shopping ${selectedBrands.length} ${selectedBrands.length === 1 ? 'brand' : 'brands'}.`}
-      </Text>
-
-      <PrimaryButton
-        label="+ Add a brand"
-        variant="secondary"
-        onPress={() => setFormOpen(true)}
-        testID="btn-add-brand"
-      />
+      <View style={styles.suggest}>
+        <Text style={styles.suggestTitle}>Didn&apos;t find it here?</Text>
+        <Text style={styles.suggestBody}>
+          Add a store&apos;s website and we&apos;ll check if we can shop its catalog.
+        </Text>
+        <PrimaryButton
+          label="+ Add a brand"
+          variant="secondary"
+          style={styles.suggestButton}
+          onPress={() => setFormOpen(true)}
+          testID="btn-add-brand"
+        />
+      </View>
 
       {brandRequests.length > 0 ? (
         <View style={styles.requests}>
-          <Text style={styles.sectionLabel}>Your requests</Text>
+          <Text style={styles.sectionLabel}>Your brands</Text>
           {brandRequests.map((request) => (
-            <View key={request.id} style={styles.requestRow}>
+            <View
+              key={request.id}
+              style={styles.requestRow}
+              testID={`brand-request-${request.name}`}
+            >
               <View style={styles.requestCopy}>
                 <Text style={styles.requestName}>{request.name}</Text>
-                <Text style={styles.requestUrl} numberOfLines={1}>
-                  {request.website}
+                <Text style={styles.requestUrl} numberOfLines={2}>
+                  {requestDetail(request)}
                 </Text>
               </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeLabel}>Requested</Text>
-              </View>
+              {request.status === 'error' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Check ${request.name} again`}
+                  hitSlop={8}
+                  onPress={() => void checkBrand(request)}
+                  style={styles.badge}
+                >
+                  <Text style={styles.badgeLabel}>Retry</Text>
+                </Pressable>
+              ) : (
+                <View
+                  style={[
+                    styles.badge,
+                    request.status === 'supported' && styles.badgeSupported,
+                  ]}
+                >
+                  <Text style={styles.badgeLabel}>{requestBadge(request)}</Text>
+                </View>
+              )}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${request.name}`}
@@ -186,24 +302,11 @@ export default function BrandsScreen() {
             </View>
           ))}
           <Text style={styles.requestNote}>
-            We&apos;ll review requested brands before styling with them. Your fit
-            uses the brands above for now.
+            Supported brands are shopped along with your picks. We never make up
+            products for stores we can&apos;t read.
           </Text>
         </View>
       ) : null}
-
-      <View style={styles.suggest}>
-        <Text style={styles.suggestTitle}>Can&apos;t find your brand?</Text>
-        <Text style={styles.suggestBody}>
-          Tell us which brand you want and we&apos;ll look into adding it.
-        </Text>
-        <PrimaryButton
-          label="Suggest another brand"
-          variant="ghost"
-          onPress={() => setFormOpen(true)}
-          testID="btn-suggest-brand"
-        />
-      </View>
 
       <BrandRequestModal
         visible={formOpen}
@@ -221,45 +324,80 @@ export default function BrandsScreen() {
             createdAt: new Date().toISOString(),
           };
           addBrandRequest(request);
-          void submitBrandRequest(request, user?.id);
           trackEvent('brand_requested', { brand: name });
           setFormOpen(false);
+          void submitBrandRequest(request, user?.id).then(() => checkBrand(request));
         }}
       />
     </Screen>
   );
 }
 
-function BrandChip({
-  label,
+function requestBadge(request: BrandRequest): string {
+  switch (request.status) {
+    case 'supported':
+      return 'Supported';
+    case 'unsupported':
+      return 'Not supported';
+    case 'requested':
+    case 'pending':
+    case 'checking':
+      return 'Checking…';
+    default:
+      return 'Retry';
+  }
+}
+
+function requestDetail(request: BrandRequest): string {
+  if (request.status === 'supported') {
+    return `${request.productCount ?? 0} products ready to shop`;
+  }
+  if ((request.status === 'unsupported' || request.status === 'error') && request.statusReason) {
+    return request.statusReason;
+  }
+  if (request.status === 'checking' || request.status === 'requested') {
+    return 'Looking for their catalog. This can take up to a minute.';
+  }
+  return request.website;
+}
+
+function NoPreferenceCard({
   selected,
   onPress,
 }: {
-  label: string;
   selected: boolean;
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="checkbox"
+    <TouchableOpacity
+      accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
+      activeOpacity={0.9}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        selected && styles.chipSelected,
-        pressed && styles.chipPressed,
-      ]}
-      testID={`brand-chip-${label}`}
+      style={[styles.noPref, selected && styles.noPrefSelected]}
+      testID="btn-no-preference"
     >
+      <View style={[styles.noPrefIcon, selected && styles.noPrefIconSelected]}>
+        <Ionicons
+          name="sparkles-outline"
+          size={20}
+          color={selected ? colors.background : colors.text}
+        />
+      </View>
+      <View style={styles.noPrefCopy}>
+        <Text style={[styles.noPrefLabel, selected && styles.noPrefLabelSelected]}>
+          {NO_PREFERENCE_LABEL}
+        </Text>
+        <Text style={styles.noPrefHint}>
+          We&apos;ll shop every available brand for the best fit.
+        </Text>
+      </View>
       <Ionicons
         name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-        size={18}
+        size={22}
         color={selected ? colors.text : colors.textMuted}
       />
-      <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
-        {label}
-      </Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
@@ -416,39 +554,89 @@ const styles = StyleSheet.create({
     ...typography.subtitle,
     color: colors.textSecondary,
   },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  chip: {
+  noPref: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.full,
+    gap: spacing.md,
+    minHeight: 72,
+    borderRadius: radii.xl,
     backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  chipSelected: {
+  noPrefSelected: {
     borderColor: colors.borderSelected,
     backgroundColor: colors.surfaceMuted,
   },
-  chipPressed: {
-    opacity: 0.75,
+  noPrefIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.sm,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  chipLabel: {
+  noPrefIconSelected: {
+    backgroundColor: colors.accent,
+  },
+  noPrefCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  noPrefLabel: {
     ...typography.label,
-    color: colors.textSecondary,
-  },
-  chipLabelSelected: {
+    fontSize: 16,
     color: colors.text,
   },
-  selectionNote: {
+  noPrefLabelSelected: {
+    fontFamily: typography.label.fontFamily,
+  },
+  noPrefHint: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  brandsSection: {
+    gap: spacing.sm,
+  },
+  brandsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 4,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  brandsToggleActive: {
+    borderColor: colors.borderSelected,
+  },
+  brandsToggleCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  brandsToggleTitle: {
+    ...typography.label,
+    color: colors.text,
+  },
+  brandsToggleHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.sm,
+  },
+  gridItem: {
+    width: '49%',
+  },
+  suggestButton: {
+    marginTop: spacing.sm,
   },
   requests: {
     gap: spacing.sm,
@@ -485,6 +673,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
+  },
+  badgeSupported: {
+    backgroundColor: colors.accentSoft,
   },
   badgeLabel: {
     ...typography.caption,

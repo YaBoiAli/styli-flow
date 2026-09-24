@@ -11,3 +11,11 @@ major_version = 16
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]
+
+# Authenticates with CATALOG_SYNC_SECRET (x-sync-secret) so pg_cron can call it.
+[functions.sync-catalog]
+verify_jwt = false
+
+# Anon key is accepted as Bearer so signed-out users can add a brand.
+[functions.resolve-brand]
+verify_jwt = true

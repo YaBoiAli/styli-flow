@@ -28,7 +28,10 @@ import {
   getGenerationCount,
   incrementGenerationCount,
 } from '@/lib/generationQuota';
-import { FREE_GENERATION_LIMIT } from '@/constants/subscriptions';
+import {
+  FREE_GENERATION_LIMIT,
+  UNLIMITED_FITS_FOR_TESTING,
+} from '@/constants/subscriptions';
 
 type SubscriptionContextValue = {
   isPremium: boolean;
@@ -172,7 +175,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const consumeGeneration = useCallback(async () => {
-    if (isPremium) return;
+    if (isPremium || UNLIMITED_FITS_FOR_TESTING) return;
     const next = await incrementGenerationCount(user?.id);
     setGenerationsUsed(next);
   }, [isPremium, user?.id]);
@@ -186,9 +189,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     return result.allowed;
   }, [isPremium, user?.id]);
 
-  const generationsRemaining = isPremium
-    ? Number.POSITIVE_INFINITY
-    : Math.max(0, FREE_GENERATION_LIMIT - generationsUsed);
+  const generationsRemaining =
+    isPremium || UNLIMITED_FITS_FOR_TESTING
+      ? Number.POSITIVE_INFINITY
+      : Math.max(0, FREE_GENERATION_LIMIT - generationsUsed);
 
   const value = useMemo(
     () => ({

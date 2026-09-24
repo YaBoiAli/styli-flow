@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: colors.text,
     textAlign: 'center',
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: typography.label.fontFamily,
   },
   progressTrack: {
     width: '72%',

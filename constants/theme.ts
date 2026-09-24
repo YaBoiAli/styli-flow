@@ -39,6 +39,15 @@ export const motion = {
   step: 1100,
 } as const;
 
+/** Floating Home / Saved / Profile pill. */
+export const tabBarLayout = {
+  height: 62,
+  lift: 8,
+  minSafe: 8,
+  gap: 16,
+  maxWidth: 420,
+} as const;
+
 export const typography = {
   brand: {
     fontFamily: 'Syne_700Bold',

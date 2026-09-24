@@ -1,21 +1,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders, friendlyError, jsonResponse } from '../_shared/cors.ts';
+import {
+  type CatalogProduct,
+  type GenderPreference,
+  inferProductGender,
+  loadCatalog,
+  type ProductCategory,
+  relevanceScore,
+} from './catalog.ts';
 
-type ProductCategory = 'top' | 'bottom' | 'shoes' | 'outerwear' | 'accessory';
-
-type Product = {
-  id: string;
-  name: string;
-  brand: string;
-  category: ProductCategory;
-  price: number;
-  color: string;
-  image_url: string;
-  purchase_url: string;
-  style_tags: string[];
-  occasion_tags: string[];
-};
+type Product = CatalogProduct;
 
 type Measurements = {
   unit?: string;
@@ -43,10 +38,14 @@ type GenerateRequest = {
   style: string;
   occasion: string;
   budget: number;
+  /** When set, shoes are budgeted separately and `budget` covers everything else. */
+  shoe_budget?: number | null;
   exclude_product_ids?: string[];
   measurements?: Measurements | null;
   inspiration?: InspirationInput[];
   brand_preference?: BrandPreference;
+  gender?: GenderPreference;
+  age?: number | null;
 };
 
 type StylingContext = {
@@ -97,8 +96,14 @@ function readStylingContext(body: GenerateRequest): StylingContext {
         )
         .slice(0, 10)
     : [];
+  const measurements = {
+    ...(readMeasurements(body.measurements) ?? {}),
+    ...(typeof body.age === 'number' && Number.isFinite(body.age)
+      ? { age: Math.round(body.age) }
+      : {}),
+  };
   return {
-    measurements: readMeasurements(body.measurements),
+    measurements: Object.keys(measurements).length ? measurements : null,
     inspiration: readInspiration(body.inspiration),
     preferredBrands,
     requestedBrands,
@@ -119,7 +124,9 @@ type AiOutfit = {
 const REQUIRED_CATEGORIES: ProductCategory[] = ['top', 'bottom', 'shoes'];
 const OPTIONAL_CATEGORIES: ProductCategory[] = ['outerwear', 'accessory'];
 const MAX_ATTEMPTS = 3;
-const MAX_CANDIDATES_PER_CATEGORY = 8;
+/** Per category: best matches (spread across brands) plus the cheapest remaining, for budget room. */
+const TOP_PICKS_PER_CATEGORY = 7;
+const CHEAP_PICKS_PER_CATEGORY = 3;
 
 function normalizeTag(value: string): string {
   return value.trim().toLowerCase();
@@ -128,6 +135,37 @@ function normalizeTag(value: string): string {
 function asNumber(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : NaN;
+}
+
+type BudgetPlan = {
+  outfit: number;
+  /** null means shoes share the outfit budget. */
+  shoes: number | null;
+};
+
+function isSeparateShoe(plan: BudgetPlan, product: Product): boolean {
+  return plan.shoes !== null && product.category === 'shoes';
+}
+
+function priceCap(plan: BudgetPlan, product: Product): number {
+  return isSeparateShoe(plan, product) ? plan.shoes! : plan.outfit;
+}
+
+/** Spend counted against the outfit budget (excludes separately budgeted shoes). */
+function outfitSpend(plan: BudgetPlan, products: Product[]): number {
+  return products
+    .filter((product) => !isSeparateShoe(plan, product))
+    .reduce((sum, product) => sum + asNumber(product.price), 0);
+}
+
+function fitsBudget(plan: BudgetPlan, products: Product[]): boolean {
+  const shoeSpend = products
+    .filter((product) => isSeparateShoe(plan, product))
+    .reduce((sum, product) => sum + asNumber(product.price), 0);
+  return (
+    outfitSpend(plan, products) <= plan.outfit &&
+    (plan.shoes === null || shoeSpend <= plan.shoes)
+  );
 }
 
 function groupByCategory(products: Product[]): Record<ProductCategory, Product[]> {
@@ -158,46 +196,74 @@ function styleAliasTags(style: string): string[] {
   return [styleTag, ...(aliases[styleTag] ?? [])];
 }
 
+/** Takes up to `count` items in rank order, rotating through brands so one store can't fill the list. */
+function spreadAcrossBrands(ranked: Product[], count: number): Product[] {
+  const byBrand = new Map<string, Product[]>();
+  for (const product of ranked) {
+    const key = product.brand_id ?? product.brand;
+    byBrand.set(key, [...(byBrand.get(key) ?? []), product]);
+  }
+  const queues = [...byBrand.values()];
+  const picked: Product[] = [];
+  while (picked.length < count && queues.some((queue) => queue.length)) {
+    for (const queue of queues) {
+      const next = queue.shift();
+      if (next && picked.length < count) picked.push(next);
+    }
+  }
+  return picked;
+}
+
 function filterCandidates(
   products: Product[],
   style: string,
   occasion: string,
-  budget: number,
+  budget: BudgetPlan,
   excludeIds: Set<string>,
 ): Product[] {
   const styleTags = styleAliasTags(style);
-  const occasionTag = normalizeTag(occasion);
 
-  const styleMatched = products.filter((product) => {
-    if (excludeIds.has(product.id)) return false;
-    if (asNumber(product.price) > budget) return false;
-    return product.style_tags.some((tag) =>
-      styleTags.includes(normalizeTag(tag)),
-    );
-  });
-
-  const occasionMatched = styleMatched.filter((product) =>
-    product.occasion_tags.some((tag) => normalizeTag(tag) === occasionTag),
+  const affordable = products.filter(
+    (product) =>
+      !excludeIds.has(product.id) && asNumber(product.price) <= priceCap(budget, product),
   );
-
-  // Prefer occasion overlap, but keep style matches if occasion is sparse.
-  const pool = occasionMatched.length >= 6 ? occasionMatched : styleMatched;
-
-  const grouped = groupByCategory(pool);
+  const scores = new Map(
+    affordable.map((product) => [product.id, relevanceScore(product, styleTags, occasion)]),
+  );
+  const MIN_STYLE_SCORE = 2;
+  const tagged = affordable.filter((product) =>
+    product.style_tags.some((tag) => styleTags.includes(normalizeTag(tag))),
+  );
+  // Live rows rarely have style_tags; keep items that read like the vibe when a
+  // category has matches, so Streetwear and Old Money are not the same pool.
+  const pool = affordable.filter((product) => {
+    if (product.source === 'demo') {
+      return product.style_tags.some((tag) => styleTags.includes(normalizeTag(tag)));
+    }
+    return true;
+  });
+  const grouped = groupByCategory(pool.length ? pool : affordable);
   const trimmed: Product[] = [];
 
   for (const category of [...REQUIRED_CATEGORIES, ...OPTIONAL_CATEGORIES]) {
-    const ranked = [...grouped[category]].sort((a, b) => {
-      const aOcc = a.occasion_tags.some((tag) => normalizeTag(tag) === occasionTag)
-        ? 0
-        : 1;
-      const bOcc = b.occasion_tags.some((tag) => normalizeTag(tag) === occasionTag)
-        ? 0
-        : 1;
-      if (aOcc !== bOcc) return aOcc - bOcc;
-      return asNumber(a.price) - asNumber(b.price);
-    });
-    trimmed.push(...ranked.slice(0, MAX_CANDIDATES_PER_CATEGORY));
+    const ranked = [...grouped[category]].sort(
+      (a, b) =>
+        (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0) ||
+        asNumber(a.price) - asNumber(b.price),
+    );
+    const stylish = ranked.filter(
+      (product) =>
+        (scores.get(product.id) ?? 0) >= MIN_STYLE_SCORE ||
+        tagged.some((row) => row.id === product.id),
+    );
+    const focused = stylish.length ? stylish : ranked;
+    const best = spreadAcrossBrands(focused, TOP_PICKS_PER_CATEGORY);
+    const chosen = new Set(best.map((product) => product.id));
+    const cheapest = ranked
+      .filter((product) => !chosen.has(product.id))
+      .sort((a, b) => asNumber(a.price) - asNumber(b.price))
+      .slice(0, CHEAP_PICKS_PER_CATEGORY);
+    trimmed.push(...best, ...cheapest);
   }
 
   return trimmed;
@@ -209,11 +275,24 @@ function candidatesForPrompt(products: Product[]) {
     name: product.name,
     brand: product.brand,
     category: product.category,
+    gender: inferProductGender(product),
+    ...(product.subcategory ? { subcategory: product.subcategory } : {}),
     price: asNumber(product.price),
-    color: product.color,
-    style_tags: product.style_tags,
-    occasion_tags: product.occasion_tags,
+    colors: product.colors.length ? product.colors.slice(0, 4) : [product.color],
+    ...(product.material ? { material: product.material.slice(0, 80) } : {}),
+    ...(product.description ? { description: product.description.slice(0, 160) } : {}),
+    ...(product.style_tags.length ? { style_tags: product.style_tags } : {}),
+    ...(product.occasion_tags.length ? { occasion_tags: product.occasion_tags } : {}),
   }));
+}
+
+function vibeSeed(style: string, occasion: string): number {
+  let hash = 0;
+  const key = `${style.toLowerCase()}|${occasion.toLowerCase()}`;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }
 
 function parseAiJson(content: string): AiOutfit {
@@ -244,24 +323,42 @@ function parseAiJson(content: string): AiOutfit {
   return parsed;
 }
 
-async function callOpenAI(params: {
+const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
+const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash';
+
+function geminiModels(): string[] {
+  const primary = Deno.env.get('GEMINI_MODEL') || DEFAULT_GEMINI_MODEL;
+  const fallback = Deno.env.get('GEMINI_FALLBACK_MODEL') || FALLBACK_GEMINI_MODEL;
+  return [...new Set([primary, fallback])];
+}
+
+async function callGemini(params: {
   style: string;
   occasion: string;
-  budget: number;
+  budget: BudgetPlan;
   candidates: ReturnType<typeof candidatesForPrompt>;
   excludeIds: string[];
   attempt: number;
   stricter: boolean;
   context: StylingContext;
+  gender: GenderPreference;
 }): Promise<AiOutfit> {
-  const apiKey = Deno.env.get('OPENAI_API_KEY');
+  const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) {
-    throw new Error('openai_missing');
+    throw new Error('ai_missing');
   }
 
+  const shopFor =
+    params.gender === 'men'
+      ? 'men'
+      : params.gender === 'women'
+        ? 'women'
+        : 'any gender';
+
   const system = `You are Styli, an expert fashion stylist.
-Choose a complete outfit ONLY from the provided candidate products.
-Never invent products, IDs, names, or prices.
+The candidates are real products retrieved from the user's chosen stores.
+Your job is only to choose and rank among them: choose a complete outfit ONLY from the provided candidate products.
+Never invent products, IDs, names, prices, images, or links.
 Return ONLY valid JSON with this shape:
 {
   "outfit_name": string,
@@ -272,55 +369,75 @@ Rules:
 - Include exactly one top, one bottom, and one shoes item.
 - Optionally include one outerwear and/or one accessory ONLY if the outfit still stays within budget.
 - Every product_id must come from the candidate list.
+- Shop for ${shopFor}. Never pick women's-coded pieces (skirts, dresses, heels, baby tees, crop tops, Mary Janes, blouses) when shopping for men. Never pick men's-only pieces when shopping for women.
+- Strongly match the requested vibe. A Streetwear fit must not look like Old Money or Y2K.
 - Prefer cohesive color/style for the requested vibe and occasion.
-- Keep the total of selected candidate prices <= budget.
+- If exclude_product_ids is non-empty, build a different fit — do not reuse those products.
+- If shoe_budget is null, keep the total of all selected candidate prices <= budget.
+- If shoe_budget is a number, shoes are budgeted separately: the shoes item must cost <= shoe_budget, and all other selected items together must cost <= budget.
 - Do not include duplicate categories.
 - If body measurements are provided, favor cuts and silhouettes that flatter them.
 - If inspiration links are provided, use them only as style direction; you cannot open them.
-- If preferred brands are provided, favor candidates from those brands.
-- Requested brands are unreviewed suggestions. Never treat them as available inventory.`;
+- Candidates are already limited to the user's brands and fit preference; judge them on style, color and occasion.`;
 
   const user = {
     style: params.style,
     occasion: params.occasion,
-    budget: params.budget,
+    shop_for: shopFor,
+    budget: params.budget.outfit,
+    shoe_budget: params.budget.shoes,
     exclude_product_ids: params.excludeIds,
     attempt: params.attempt,
     stricter: params.stricter,
     instruction: params.stricter
       ? 'Previous attempt exceeded budget or was invalid. Choose cheaper compatible pieces and omit optional items if needed.'
-      : 'Build the best outfit within budget.',
+      : params.excludeIds.length
+        ? 'Build a different outfit than the excluded products, still matching the vibe.'
+        : 'Build the best outfit within budget for this vibe.',
     measurements: params.context.measurements,
     inspiration: params.context.inspiration,
-    preferred_brands: params.context.preferredBrands,
-    requested_brands: params.context.requestedBrands,
     candidates: params.candidates,
   };
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+  const body = JSON.stringify({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: 'user', parts: [{ text: JSON.stringify(user) }] }],
+    generationConfig: {
+      temperature: params.stricter ? 0.2 : params.excludeIds.length ? 0.95 : 0.75,
+      responseMimeType: 'application/json',
     },
-    body: JSON.stringify({
-      model: Deno.env.get('OPENAI_MODEL') ?? 'gpt-4o-mini',
-      temperature: params.stricter ? 0.2 : 0.7,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: JSON.stringify(user) },
-      ],
-    }),
   });
 
-  if (!response.ok) {
-    throw new Error('openai');
+  let response: Response | null = null;
+  for (const model of geminiModels()) {
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body,
+      },
+    );
+    // Overloaded, rate-limited, or retired models fall through to the next one.
+    if (![404, 429, 500, 503].includes(response.status)) break;
+    await response.body?.cancel();
+  }
+
+  if (!response?.ok) {
+    throw new Error('ai');
   }
 
   const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || !content.trim()) {
+  const parts: Array<{ text?: unknown; thought?: unknown }> =
+    payload?.candidates?.[0]?.content?.parts ?? [];
+  const content = parts
+    .filter((part) => !part.thought && typeof part.text === 'string')
+    .map((part) => part.text as string)
+    .join('');
+  if (!content.trim()) {
     throw new Error('invalid_ai');
   }
 
@@ -328,49 +445,52 @@ Rules:
 }
 
 /**
- * Deterministic local stylist used only when OPENAI_API_KEY is unset and
- * ALLOW_HEURISTIC_FALLBACK=true (local Stage 3 testing). Production must set OPENAI_API_KEY.
+ * Deterministic local stylist used only when GEMINI_API_KEY is unset and
+ * ALLOW_HEURISTIC_FALLBACK=true (local Stage 3 testing). Production must set GEMINI_API_KEY.
  */
 function heuristicOutfit(
   style: string,
   occasion: string,
-  budget: number,
+  budget: BudgetPlan,
   candidates: Product[],
   excludeIds: Set<string>,
   attempt: number,
 ): AiOutfit {
   const styleTags = styleAliasTags(style);
-  const grouped = groupByCategory(
-    candidates.filter((product) => !excludeIds.has(product.id)),
-  );
+  const scoreOf = (product: Product) => relevanceScore(product, styleTags, occasion);
+  const grouped = groupByCategory(candidates);
 
   const rank = (list: Product[]) =>
-    [...list].sort((a, b) => {
-      const aPrimary =
-        a.style_tags[0] && styleTags.includes(normalizeTag(a.style_tags[0]))
-          ? 0
-          : 1;
-      const bPrimary =
-        b.style_tags[0] && styleTags.includes(normalizeTag(b.style_tags[0]))
-          ? 0
-          : 1;
-      if (aPrimary !== bPrimary) return aPrimary - bPrimary;
-      return asNumber(a.price) - asNumber(b.price);
-    });
+    [...list].sort(
+      (a, b) => scoreOf(b) - scoreOf(a) || asNumber(a.price) - asNumber(b.price),
+    );
 
-  const tops = rank(grouped.top);
-  const bottoms = rank(grouped.bottom);
-  const shoes = rank(grouped.shoes);
+  const tops = rank(grouped.top).slice(0, 10);
+  const bottoms = rank(grouped.bottom).slice(0, 10);
+  const shoes = rank(grouped.shoes).slice(0, 10);
 
-  type Combo = { top: Product; bottom: Product; shoes: Product; total: number };
+  type Combo = {
+    top: Product;
+    bottom: Product;
+    shoes: Product;
+    total: number;
+    styleScore: number;
+    overlap: number;
+  };
   const combos: Combo[] = [];
   for (const top of tops) {
     for (const bottom of bottoms) {
       for (const shoe of shoes) {
-        const total =
-          asNumber(top.price) + asNumber(bottom.price) + asNumber(shoe.price);
-        if (total <= budget) {
-          combos.push({ top, bottom, shoes: shoe, total });
+        if (fitsBudget(budget, [top, bottom, shoe])) {
+          const ids = [top.id, bottom.id, shoe.id];
+          combos.push({
+            top,
+            bottom,
+            shoes: shoe,
+            total: asNumber(top.price) + asNumber(bottom.price) + asNumber(shoe.price),
+            styleScore: scoreOf(top) + scoreOf(bottom) + scoreOf(shoe),
+            overlap: ids.filter((id) => excludeIds.has(id)).length,
+          });
         }
       }
     }
@@ -381,15 +501,22 @@ function heuristicOutfit(
   }
 
   combos.sort((a, b) => {
-    const score = (combo: Combo) =>
-      [combo.top.id, combo.bottom.id, combo.shoes.id].filter((id) =>
-        excludeIds.has(id),
-      ).length;
-    const overlapDiff = score(a) - score(b);
-    if (overlapDiff !== 0) return overlapDiff;
+    if (a.overlap !== b.overlap) return a.overlap - b.overlap;
+    if (b.styleScore !== a.styleScore) return b.styleScore - a.styleScore;
     return a.total - b.total;
   });
-  const chosen = combos[Math.min(attempt, combos.length - 1)];
+
+  const fresh = combos.filter((combo) => {
+    const ids = [combo.top.id, combo.bottom.id, combo.shoes.id];
+    return !(excludeIds.size && ids.every((id) => excludeIds.has(id)));
+  });
+  const ranked = fresh.length ? fresh : combos;
+  const minOverlap = ranked[0].overlap;
+  const bestScore = ranked[0].styleScore;
+  const band = ranked.filter(
+    (combo) => combo.overlap === minOverlap && combo.styleScore >= bestScore - 1,
+  );
+  const chosen = band[(vibeSeed(style, occasion) + attempt) % band.length];
 
   const items: AiItem[] = [
     {
@@ -406,10 +533,12 @@ function heuristicOutfit(
     },
   ];
 
-  let remaining = budget - chosen.total;
+  let remaining =
+    budget.outfit - outfitSpend(budget, [chosen.top, chosen.bottom, chosen.shoes]);
   for (const category of OPTIONAL_CATEGORIES) {
     const optional = rank(grouped[category]).find(
-      (product) => asNumber(product.price) <= remaining,
+      (product) =>
+        !excludeIds.has(product.id) && asNumber(product.price) <= remaining,
     );
     if (optional) {
       remaining -= asNumber(optional.price);
@@ -427,14 +556,12 @@ function heuristicOutfit(
   };
 }
 
-function canBuildCoreOutfit(candidates: Product[], budget: number): boolean {
+function canBuildCoreOutfit(candidates: Product[], budget: BudgetPlan): boolean {
   const grouped = groupByCategory(candidates);
   for (const top of grouped.top) {
     for (const bottom of grouped.bottom) {
       for (const shoe of grouped.shoes) {
-        const total =
-          asNumber(top.price) + asNumber(bottom.price) + asNumber(shoe.price);
-        if (total <= budget) return true;
+        if (fitsBudget(budget, [top, bottom, shoe])) return true;
       }
     }
   }
@@ -444,7 +571,7 @@ function canBuildCoreOutfit(candidates: Product[], budget: number): boolean {
 function validateAndBuild(
   ai: AiOutfit,
   candidateMap: Map<string, Product>,
-  budget: number,
+  budget: BudgetPlan,
 ) {
   const selected: Array<{ product: Product; reason: string }> = [];
   const seenCategories = new Set<ProductCategory>();
@@ -482,7 +609,7 @@ function validateAndBuild(
   );
   const totalPrice = Math.round(total * 100) / 100;
 
-  if (totalPrice > budget) {
+  if (!fitsBudget(budget, selected.map((entry) => entry.product))) {
     throw new Error('budget');
   }
 
@@ -502,14 +629,25 @@ async function handler(req: Request): Promise<Response> {
     const body = (await req.json()) as GenerateRequest;
     const style = typeof body.style === 'string' ? body.style.trim() : '';
     const occasion = typeof body.occasion === 'string' ? body.occasion.trim() : '';
-    const budget = asNumber(body.budget);
+    const outfitBudget = asNumber(body.budget);
+    const shoeBudget =
+      body.shoe_budget === null || body.shoe_budget === undefined
+        ? null
+        : asNumber(body.shoe_budget);
     const excludeIds = new Set(
       (body.exclude_product_ids ?? []).filter((id) => typeof id === 'string'),
     );
 
-    if (!style || !occasion || !Number.isFinite(budget) || budget <= 0) {
+    if (
+      !style ||
+      !occasion ||
+      !Number.isFinite(outfitBudget) ||
+      outfitBudget <= 0 ||
+      (shoeBudget !== null && (!Number.isFinite(shoeBudget) || shoeBudget <= 0))
+    ) {
       return friendlyError('invalid_ai', 400);
     }
+    const budget: BudgetPlan = { outfit: outfitBudget, shoes: shoeBudget };
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? Deno.env.get('EXPO_PUBLIC_SUPABASE_URL');
     const serviceKey =
@@ -526,33 +664,30 @@ async function handler(req: Request): Promise<Response> {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { data, error } = await supabase.from('products').select('*');
-    if (error) {
-      return friendlyError('network', 500);
-    }
-
-    const allProducts = (data ?? []).map((row) => ({
-      ...row,
-      price: asNumber(row.price),
-    })) as Product[];
-
     const context = readStylingContext(body);
+    const gender: GenderPreference =
+      body.gender === 'men' || body.gender === 'women' ? body.gender : 'any';
+    const selectingBrands = context.preferredBrands.length > 0;
+    const localFn = Number.isFinite(Number(Deno.env.get('EDGE_FUNCTION_PORT') ?? ''));
 
-    // Prefer the user's brands, but never fail a fit because of them.
-    const brandSet = new Set(
-      context.preferredBrands.map((brand) => normalizeTag(brand)),
-    );
-    const brandProducts = brandSet.size
-      ? allProducts.filter((product) => brandSet.has(normalizeTag(product.brand)))
-      : [];
-    const products =
-      brandProducts.length &&
-      canBuildCoreOutfit(
-        filterCandidates(brandProducts, style, occasion, budget, excludeIds),
-        budget,
-      )
-        ? brandProducts
-        : allProducts;
+    const catalog = await loadCatalog(supabase, {
+      scope: { brandNames: context.preferredBrands, requestedBrands: context.requestedBrands },
+      gender,
+      maxPrice: Math.max(budget.outfit, budget.shoes ?? 0),
+      allowDemo: Deno.env.get('ALLOW_DEMO_CATALOG') === 'true' || localFn,
+    });
+    if (!catalog.ok) {
+      if (catalog.code === 'network') return friendlyError('network', 500);
+      return friendlyError(catalog.code, 404, { unavailable_brands: catalog.unavailableBrands });
+    }
+    const products = catalog.products;
+    const brandsNoFit = (candidatePool: Product[]) => {
+      const regrouped = groupByCategory(candidatePool);
+      return friendlyError(selectingBrands ? 'brands_no_fit' : 'no_products', 404, {
+        missing_categories: REQUIRED_CATEGORIES.filter((c) => regrouped[c].length === 0),
+        unavailable_brands: catalog.unavailableBrands,
+      });
+    };
 
     const candidates = filterCandidates(
       products,
@@ -584,13 +719,14 @@ async function handler(req: Request): Promise<Response> {
         REQUIRED_CATEGORIES.some((required) => regrouped[required].length === 0) ||
         !canBuildCoreOutfit(workingCandidates, budget)
       ) {
-        return friendlyError('no_products', 404);
+        return brandsNoFit(workingCandidates);
       }
     }
 
     const promptCandidates = candidatesForPrompt(workingCandidates);
-    const allowHeuristic = Deno.env.get('ALLOW_HEURISTIC_FALLBACK') === 'true';
-    const hasOpenAI = Boolean(Deno.env.get('OPENAI_API_KEY'));
+    const allowHeuristic =
+      Deno.env.get('ALLOW_HEURISTIC_FALLBACK') === 'true' || localFn;
+    const hasGemini = Boolean(Deno.env.get('GEMINI_API_KEY'));
     const excludedList = [...excludeIds];
 
     let lastError: string | null = null;
@@ -598,29 +734,34 @@ async function handler(req: Request): Promise<Response> {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
       try {
         const stricter = attempt > 1;
-        const ai = hasOpenAI
-          ? await callOpenAI({
-              style,
-              occasion,
-              budget,
-              candidates: promptCandidates,
-              excludeIds: excludedList,
-              attempt,
-              stricter,
-              context,
+        const geminiArgs = {
+          style,
+          occasion,
+          budget,
+          candidates: promptCandidates,
+          excludeIds: excludedList,
+          attempt,
+          stricter,
+          context,
+          gender,
+        };
+        const heuristicArgs = [
+          style,
+          occasion,
+          budget,
+          workingCandidates,
+          excludeIds,
+          attempt - 1,
+        ] as const;
+        const ai = hasGemini
+          ? await callGemini(geminiArgs).catch((err) => {
+              if (!allowHeuristic) throw err;
+              return heuristicOutfit(...heuristicArgs);
             })
           : allowHeuristic
-          ? heuristicOutfit(
-              style,
-              occasion,
-              budget,
-              workingCandidates,
-              // On later attempts, soften excludes so a valid different combo can still form.
-              attempt === 1 ? excludeIds : new Set(),
-              attempt - 1,
-            )
+          ? heuristicOutfit(...heuristicArgs)
           : (() => {
-              throw new Error('openai_missing');
+              throw new Error('ai_missing');
             })();
 
         // Rebuild must not return an identical product set.
@@ -645,8 +786,11 @@ async function handler(req: Request): Promise<Response> {
           styling_tip: ai.styling_tip,
           style,
           occasion,
-          budget,
+          budget: budget.outfit,
+          shoe_budget: budget.shoes,
           total_price: totalPrice,
+          catalog_source: catalog.catalogSource,
+          unavailable_brands: catalog.unavailableBrands,
           items: selected.map(({ product, reason }) => ({
             product_id: product.id,
             reason,
@@ -655,19 +799,22 @@ async function handler(req: Request): Promise<Response> {
               name: product.name,
               brand: product.brand,
               category: product.category,
+              subcategory: product.subcategory,
               price: asNumber(product.price),
+              currency: product.currency,
               color: product.color,
               image_url: product.image_url,
               purchase_url: product.purchase_url,
               style_tags: product.style_tags,
               occasion_tags: product.occasion_tags,
+              source: product.source,
             },
           })),
         });
       } catch (err) {
         lastError = err instanceof Error ? err.message : 'unknown';
-        if (lastError === 'openai_missing') {
-          return friendlyError('openai', 500);
+        if (lastError === 'ai_missing') {
+          return friendlyError('ai', 500);
         }
         // Keep retrying for no_products/budget/invalid_ai within MAX_ATTEMPTS
         continue;
@@ -675,7 +822,7 @@ async function handler(req: Request): Promise<Response> {
     }
 
     if (lastError === 'budget') return friendlyError('budget', 422);
-    if (lastError === 'openai') return friendlyError('openai', 502);
+    if (lastError === 'ai') return friendlyError('ai', 502);
     return friendlyError('invalid_ai', 422);
   } catch {
     return friendlyError('unknown', 500);

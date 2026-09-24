@@ -49,7 +49,7 @@ export default function SavedScreen() {
 
   if (authLoading || loading) {
     return (
-      <Screen scroll={false} contentStyle={styles.centered}>
+      <Screen overTabs scroll={false} contentStyle={styles.centered}>
         <LoadingAnimation message="Pulling up your closet..." stepIndex={1} stepCount={3} />
       </Screen>
     );
@@ -58,6 +58,7 @@ export default function SavedScreen() {
   if (!isAuthenticated) {
     return (
       <Screen
+        overTabs
         contentStyle={styles.content}
         footer={
           <PrimaryButton
@@ -76,7 +77,7 @@ export default function SavedScreen() {
   }
 
   return (
-    <Screen contentStyle={styles.content}>
+    <Screen overTabs contentStyle={styles.content}>
       <Text style={styles.kicker}>Closet</Text>
       <Text style={styles.title}>Saved</Text>
       {error ? (

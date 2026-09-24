@@ -1,5 +1,3 @@
-import type { Style } from '@/types';
-
 /** RevenueCat entitlement identifier (source of truth). */
 export const PREMIUM_ENTITLEMENT_ID = 'premium';
 
@@ -13,19 +11,12 @@ export const PRODUCT_IDS = {
 
 export const FREE_GENERATION_LIMIT = 3;
 
+/** Local Expo / explicit test flag — skip the free-tier fit cap. */
+export const UNLIMITED_FITS_FOR_TESTING =
+  __DEV__ || process.env.EXPO_PUBLIC_UNLIMITED_FITS === 'true';
+
 /** Free accounts can keep this many saved outfits; premium is unlimited. */
 export const FREE_SAVE_LIMIT = 3;
-
-export const PREMIUM_STYLES: Style[] = [
-  'Runway',
-  'Quiet Luxury',
-  'Dark Academia',
-  'Elevated Streetwear',
-];
-
-export function isPremiumStyle(style: Style): boolean {
-  return PREMIUM_STYLES.includes(style);
-}
 
 export const PAYWALL_FEATURES = [
   'Unlimited AI fits',

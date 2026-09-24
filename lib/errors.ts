@@ -39,6 +39,10 @@ function sanitize(message: string, fallback: string): string {
     return "Couldn't lock a fit in that budget. Try raising it a little.";
   }
 
+  if (lower.includes('not_found') || lower.includes('stylist service is offline')) {
+    return 'Your stylist service is offline. Deploy generate-outfit or use the local proxy.';
+  }
+
   // Likely technical / raw payload
   if (
     lower.includes('stack') ||

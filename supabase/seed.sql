@@ -1,10 +1,8 @@
 -- Styli product catalog seed (148 products)
 -- Image URLs are temporary Unsplash placeholders for development.
--- Replace image_url / purchase_url later with production CDN + retailer links.
-
-truncate table public.outfit_items cascade;
-truncate table public.outfits cascade;
-truncate table public.products cascade;
+-- These are demo rows (source = 'demo') for development only; generate-outfit ignores them
+-- unless ALLOW_DEMO_CATALOG=true and no real catalog products match.
+-- Re-running is safe: existing rows, real catalog products and saved outfits are untouched.
 
 insert into public.products (
   id,
@@ -165,4 +163,6 @@ insert into public.products (
   ('5027143a-54d9-40c6-ad06-d7fbdf9c1798', 'Moss Leather Moto Jacket', 'Studio Nine', 'outerwear', 103, 'Moss', 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80', 'https://example.com/products/grunge/outerwear/32', ARRAY['grunge']::text[], ARRAY['everyday', 'party', 'night out', 'school']::text[]),
   ('27c51fa9-c846-4aaf-bd0a-ec2959722e5c', 'Black Chain Necklace', 'Velvet Arc', 'accessory', 36, 'Black', 'https://images.unsplash.com/photo-1588850561407-ed78ebb37fb5?w=800&q=80', 'https://example.com/products/grunge/accessory/41', ARRAY['grunge', 'streetwear']::text[], ARRAY['everyday', 'party', 'night out']::text[]),
   ('cb279d99-8d6d-4cb3-ad33-6d2346cbf452', 'Washed Red Studded Belt', 'Studio Nine', 'accessory', 53, 'Washed Red', 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=800&q=80', 'https://example.com/products/grunge/accessory/42', ARRAY['grunge']::text[], ARRAY['everyday', 'party', 'night out', 'school']::text[]),
-  ('ac77b801-d1cc-4f54-902a-5928e62e2206', 'Charcoal Beanie', 'Harbor Knit', 'accessory', 70, 'Charcoal', 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80', 'https://example.com/products/grunge/accessory/43', ARRAY['grunge']::text[], ARRAY['everyday', 'party', 'night out']::text[]);
+  ('ac77b801-d1cc-4f54-902a-5928e62e2206', 'Charcoal Beanie', 'Harbor Knit', 'accessory', 70, 'Charcoal', 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&q=80', 'https://example.com/products/grunge/accessory/43', ARRAY['grunge']::text[], ARRAY['everyday', 'party', 'night out']::text[])
+-- source falls back to its column default, 'demo'.
+on conflict (id) do nothing;

@@ -9,19 +9,8 @@ import { join } from 'node:path';
 
 const FREE_GENERATION_LIMIT = 3;
 const PREMIUM_ENTITLEMENT_ID = 'premium';
-const PREMIUM_STYLES = [
-  'Runway',
-  'Quiet Luxury',
-  'Dark Academia',
-  'Elevated Streetwear',
-];
-
 function hasPremiumEntitlement(info) {
   return Boolean(info?.entitlements?.active?.[PREMIUM_ENTITLEMENT_ID]);
-}
-
-function isPremiumStyle(style) {
-  return PREMIUM_STYLES.includes(style);
 }
 
 /** File-backed quota store mirroring AsyncStorage behavior for Node tests. */
@@ -98,20 +87,14 @@ function testEntitlementSourceOfTruth() {
   );
 }
 
-function testPremiumStyles() {
-  assert.equal(isPremiumStyle('Streetwear'), false);
-  assert.equal(isPremiumStyle('Runway'), true);
-  assert.equal(isPremiumStyle('Quiet Luxury'), true);
-}
-
 async function testRevenueCatApiIfConfigured() {
   const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
   if (!apiKey || apiKey.includes('YOUR_') || apiKey.startsWith('test_YOUR')) {
-    console.log('4) RevenueCat live check skipped (no Test Store API key in .env)');
+    console.log('3) RevenueCat live check skipped (no Test Store API key in .env)');
     return;
   }
 
-  console.log('4) RevenueCat offerings via REST (public key sanity)');
+  console.log('3) RevenueCat offerings via REST (public key sanity)');
   // Public SDK keys cannot call the secret REST API; hit the subscribers
   // endpoint only when a secret key is present.
   const secret = process.env.REVENUECAT_SECRET_API_KEY;
@@ -138,10 +121,6 @@ async function main() {
 
   console.log('2) Entitlement is source of truth');
   testEntitlementSourceOfTruth();
-  console.log('   ok');
-
-  console.log('3) Premium styles marked');
-  testPremiumStyles();
   console.log('   ok');
 
   await testRevenueCatApiIfConfigured();

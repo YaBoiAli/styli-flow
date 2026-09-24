@@ -1,8 +1,10 @@
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabaseUrl } from '@/lib/supabaseUrl';
 import { toUiCategory } from '@/lib/outfitBuilder';
 import type {
   BodyMeasurements,
   BrandRequest,
+  GenderPreference,
   InspirationSource,
   Occasion,
   Outfit,
@@ -14,12 +16,16 @@ export type GenerateOutfitRequest = {
   style: Style;
   occasion: Occasion;
   budget: number;
+  /** Separate cap for shoes; null/undefined means shoes are inside `budget`. */
+  shoeBudget?: number | null;
   excludeProductIds?: string[];
   measurements?: BodyMeasurements | null;
   inspirationSources?: InspirationSource[];
   /** Empty means "No Preference". */
   selectedBrands?: string[];
   brandRequests?: BrandRequest[];
+  gender?: GenderPreference;
+  age?: number | null;
 };
 
 function measurementsPayload(measurements: BodyMeasurements | null | undefined) {
@@ -144,7 +150,7 @@ export async function generateOutfit(
 
   const supabase = getSupabase();
   const { data: sessionData } = await supabase.auth.getSession();
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const supabaseUrl = getSupabaseUrl();
   const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !anonKey) {
@@ -164,9 +170,12 @@ export async function generateOutfit(
         style: request.style,
         occasion: request.occasion,
         budget: request.budget,
+        shoe_budget: request.shoeBudget ?? null,
         exclude_product_ids: request.excludeProductIds ?? [],
         measurements: measurementsPayload(request.measurements),
         inspiration: inspirationPayload(request.inspirationSources),
+        gender: request.gender ?? 'any',
+        age: request.age ?? null,
         brand_preference: {
           mode: request.selectedBrands?.length ? 'selected' : 'no_preference',
           brands: request.selectedBrands ?? [],
@@ -190,9 +199,20 @@ export async function generateOutfit(
   }
 
   if (!response.ok || payload?.error) {
+    const code = payload?.code ?? (response.status === 404 ? 'NOT_FOUND' : 'unknown');
+    const payloadMessage =
+      payload && typeof payload === 'object' && 'message' in payload
+        ? String((payload as { message?: unknown }).message ?? '')
+        : '';
+    const remoteMissing =
+      code === 'NOT_FOUND' || payloadMessage.toLowerCase().includes('function');
     throw new OutfitGenerationError(
-      typeof payload?.error === 'string' ? payload.error : FRIENDLY_FALLBACK,
-      payload?.code ?? 'unknown',
+      remoteMissing
+        ? 'Your stylist service is offline. Deploy generate-outfit or point the app at the local proxy.'
+        : typeof payload?.error === 'string'
+          ? payload.error
+          : FRIENDLY_FALLBACK,
+      remoteMissing ? 'NOT_FOUND' : code,
     );
   }
 
@@ -204,7 +224,10 @@ export async function generateOutfit(
     throw new OutfitGenerationError(FRIENDLY_FALLBACK, 'invalid_ai');
   }
 
-  if (Number(payload.total_price) > Number(request.budget)) {
+  if (
+    Number(payload.total_price) >
+    Number(request.budget) + Number(request.shoeBudget ?? 0)
+  ) {
     throw new OutfitGenerationError(
       "Your stylist couldn't find the right fit within that budget. Try again.",
       'budget',

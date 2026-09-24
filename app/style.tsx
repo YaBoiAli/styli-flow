@@ -8,7 +8,6 @@ import { Screen } from '@/components/Screen';
 import { StyleCard } from '@/components/StyleCard';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { isPremiumStyle } from '@/constants/subscriptions';
 import { colors, spacing, typography } from '@/constants/theme';
 import { premiumStatusLabel, trackEvent } from '@/lib/analytics';
 import { STYLES, type Style } from '@/types';
@@ -19,10 +18,6 @@ export default function StyleScreen() {
   const { isPremium } = useSubscription();
 
   function handleStylePress(styleName: Style) {
-    if (isPremiumStyle(styleName) && !isPremium) {
-      router.push('/paywall?redirect=/style');
-      return;
-    }
     setStyle(styleName);
     trackEvent('style_selected', {
       style: styleName,

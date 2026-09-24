@@ -1,6 +1,10 @@
 import 'react-native-gesture-handler';
 
 import {
+  BodoniModa_400Regular,
+  BodoniModa_700Bold,
+} from '@expo-google-fonts/bodoni-moda';
+import {
   DMSans_400Regular,
   DMSans_500Medium,
 } from '@expo-google-fonts/dm-sans';
@@ -26,6 +30,8 @@ export default function RootLayout() {
     Syne_700Bold,
     DMSans_400Regular,
     DMSans_500Medium,
+    BodoniModa_400Regular,
+    BodoniModa_700Bold,
   });
 
   useEffect(() => {
@@ -55,6 +61,7 @@ export default function RootLayout() {
             }}
           >
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="you" />
             <Stack.Screen name="measurements" />
             <Stack.Screen name="style" />
             <Stack.Screen name="occasion" />

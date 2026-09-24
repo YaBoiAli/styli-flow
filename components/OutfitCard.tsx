@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   budgetPillText: {
     ...typography.caption,
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: typography.label.fontFamily,
   },
   budgetPillTextOk: {
     color: colors.success,

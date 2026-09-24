@@ -13,11 +13,25 @@ import { BUDGET_PRESETS } from '@/types';
 type BudgetSelectorProps = {
   value: number | null;
   onChange: (budget: number) => void;
+  presets?: readonly number[];
+  displayLabel?: string;
+  /** Hides the large amount display for secondary budgets. */
+  compact?: boolean;
+  customLabel?: string;
+  testIDPrefix?: string;
 };
 
-export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
+export function BudgetSelector({
+  value,
+  onChange,
+  presets = BUDGET_PRESETS,
+  displayLabel = 'Selected budget',
+  compact = false,
+  customLabel = 'Custom budget',
+  testIDPrefix = 'budget',
+}: BudgetSelectorProps) {
   const [customText, setCustomText] = useState(
-    value && !BUDGET_PRESETS.includes(value) ? String(value) : '',
+    value && !presets.includes(value) ? String(value) : '',
   );
 
   const handleCustomChange = (text: string) => {
@@ -30,16 +44,18 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.display}>
-        <Text style={styles.displayLabel}>Selected budget</Text>
-        <Text style={styles.displayValue} testID="budget-display">
-          {value ? `$${value}` : '—'}
-        </Text>
-      </View>
+    <View style={[styles.container, compact && styles.containerCompact]}>
+      {compact ? null : (
+        <View style={styles.display}>
+          <Text style={styles.displayLabel}>{displayLabel}</Text>
+          <Text style={styles.displayValue} testID={`${testIDPrefix}-display`}>
+            {value ? `$${value}` : '—'}
+          </Text>
+        </View>
+      )}
 
       <View style={styles.presets}>
-        {BUDGET_PRESETS.map((preset) => {
+        {presets.map((preset) => {
           const selected = value === preset && customText.length === 0;
           return (
             <TouchableOpacity
@@ -52,7 +68,7 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
                 onChange(preset);
               }}
               style={[styles.preset, selected && styles.presetSelected]}
-              testID={`budget-preset-${preset}`}
+              testID={`${testIDPrefix}-preset-${preset}`}
             >
               <Text
                 style={[styles.presetLabel, selected && styles.presetLabelSelected]}
@@ -65,7 +81,7 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
       </View>
 
       <View style={styles.customWrap}>
-        <Text style={styles.customLabel}>Custom budget</Text>
+        <Text style={styles.customLabel}>{customLabel}</Text>
         <View style={styles.customRow}>
           <Text style={styles.dollar}>$</Text>
           <TextInput
@@ -75,7 +91,7 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
             placeholder="Enter amount"
             placeholderTextColor={colors.textMuted}
             style={styles.input}
-            testID="budget-custom-input"
+            testID={`${testIDPrefix}-custom-input`}
           />
         </View>
       </View>
@@ -86,6 +102,9 @@ export function BudgetSelector({ value, onChange }: BudgetSelectorProps) {
 const styles = StyleSheet.create({
   container: {
     gap: spacing.lg,
+  },
+  containerCompact: {
+    gap: spacing.md,
   },
   display: {
     backgroundColor: colors.surface,
@@ -127,7 +146,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   presetLabelSelected: {
-    fontFamily: 'DMSans_500Medium',
+    fontFamily: typography.label.fontFamily,
   },
   customWrap: {
     gap: spacing.sm,

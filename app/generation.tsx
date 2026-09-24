@@ -34,7 +34,11 @@ export default function GenerationScreen() {
     selectedStyle,
     selectedOccasion,
     selectedBudget,
+    shoesInBudget,
+    shoeBudget,
     bodyMeasurements,
+    gender,
+    age,
     inspirationSources,
     selectedBrands,
     brandRequests,
@@ -81,9 +85,12 @@ export default function GenerationScreen() {
         occasion: selectedOccasion!,
         budget: selectedBudget!,
         budget_range: getBudgetRange(selectedBudget!),
+        shoes_in_budget: shoesInBudget,
         premium_status: premiumStatusLabel(isPremium),
         inspiration_count: inspirationSources.length,
         brand_count: selectedBrands.length,
+        gender,
+        age,
       };
 
       try {
@@ -101,11 +108,14 @@ export default function GenerationScreen() {
           style: selectedStyle!,
           occasion: selectedOccasion!,
           budget: selectedBudget!,
+          shoeBudget: shoesInBudget ? null : shoeBudget,
           excludeProductIds,
           measurements: bodyMeasurements,
           inspirationSources,
           selectedBrands,
           brandRequests,
+          gender: gender ?? 'any',
+          age,
         });
         if (cancelled) return;
 
@@ -137,7 +147,10 @@ export default function GenerationScreen() {
             err instanceof OutfitGenerationError ? err.code ?? 'unknown' : 'unknown',
         });
         setGeneratedOutfit(null);
-        setGenerationError(message);
+        setGenerationError(
+          message,
+          err instanceof OutfitGenerationError ? err.code : null,
+        );
         router.replace('/outfit');
       }
     }
@@ -151,7 +164,11 @@ export default function GenerationScreen() {
     selectedStyle,
     selectedOccasion,
     selectedBudget,
+    shoesInBudget,
+    shoeBudget,
     bodyMeasurements,
+    gender,
+    age,
     inspirationSources,
     selectedBrands,
     brandRequests,

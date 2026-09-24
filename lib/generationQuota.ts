@@ -1,6 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { FREE_GENERATION_LIMIT } from '@/constants/subscriptions';
+import {
+  FREE_GENERATION_LIMIT,
+  UNLIMITED_FITS_FOR_TESTING,
+} from '@/constants/subscriptions';
 
 const STORAGE_KEY = 'styli.generationCount.v1';
 
@@ -32,7 +35,7 @@ export async function canGenerateOutfit(params: {
   isPremium: boolean;
   userId?: string | null;
 }): Promise<{ allowed: boolean; remaining: number; used: number }> {
-  if (params.isPremium) {
+  if (params.isPremium || UNLIMITED_FITS_FOR_TESTING) {
     return { allowed: true, remaining: Number.POSITIVE_INFINITY, used: 0 };
   }
 

@@ -15,7 +15,13 @@ import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { usePreferences } from '@/context/PreferencesContext';
 import { colors, radii, spacing, typography } from '@/constants/theme';
-import type { BodyMeasurements, MeasurementUnit } from '@/types';
+import type { BodyMeasurements, GenderPreference, MeasurementUnit } from '@/types';
+
+const GENDER_OPTIONS: Array<{ value: GenderPreference; label: string }> = [
+  { value: 'men', label: 'Men' },
+  { value: 'women', label: 'Women' },
+  { value: 'any', label: 'Any' },
+];
 
 const CM_PER_INCH = 2.54;
 const KG_PER_LB = 0.45359237;
@@ -44,7 +50,7 @@ const EMPTY_ADVANCED: AdvancedDraft = {
 
 export default function MeasurementsScreen() {
   const router = useRouter();
-  const { bodyMeasurements, setBodyMeasurements } = usePreferences();
+  const { bodyMeasurements, setBodyMeasurements, gender, setGender } = usePreferences();
   const initial = draftFromSaved(bodyMeasurements);
 
   const [unit, setUnit] = useState<MeasurementUnit>(initial.unit);
@@ -123,12 +129,13 @@ export default function MeasurementsScreen() {
         <PrimaryButton
           label="Continue"
           testID="btn-continue-measurements"
+          disabled={!gender}
           onPress={handleContinue}
         />
       }
     >
       <View style={styles.top}>
-        <BackButton />
+        <BackButton fallbackHref="/you" />
         <OnboardingProgress step="Fit" />
         <Text style={styles.title}>How should it fit?</Text>
         <Text style={styles.subtitle}>
@@ -136,17 +143,19 @@ export default function MeasurementsScreen() {
         </Text>
       </View>
 
-      <View style={styles.unitRow}>
-        <UnitChip
-          label="ft / lb"
-          selected={unit === 'imperial'}
-          onPress={() => switchUnit('imperial')}
-        />
-        <UnitChip
-          label="cm / kg"
-          selected={unit === 'metric'}
-          onPress={() => switchUnit('metric')}
-        />
+      <View style={styles.fields}>
+        <Text style={styles.sectionLabel}>Shop for</Text>
+        <View style={styles.unitRow}>
+          {GENDER_OPTIONS.map((option) => (
+            <UnitChip
+              key={option.value}
+              label={option.label}
+              selected={gender === option.value}
+              onPress={() => setGender(option.value)}
+              testID={`chip-gender-${option.value}`}
+            />
+          ))}
+        </View>
       </View>
 
       <View style={styles.fields}>
@@ -184,6 +193,18 @@ export default function MeasurementsScreen() {
           suffix={weightUnit}
           testID="input-weight"
         />
+        <View style={styles.unitRow}>
+          <UnitChip
+            label="ft / lb"
+            selected={unit === 'imperial'}
+            onPress={() => switchUnit('imperial')}
+          />
+          <UnitChip
+            label="cm / kg"
+            selected={unit === 'metric'}
+            onPress={() => switchUnit('metric')}
+          />
+        </View>
       </View>
 
       <Pressable
@@ -231,10 +252,12 @@ function UnitChip({
   label,
   selected,
   onPress,
+  testID,
 }: {
   label: string;
   selected: boolean;
   onPress: () => void;
+  testID?: string;
 }) {
   return (
     <Pressable
@@ -242,6 +265,7 @@ function UnitChip({
       accessibilityState={{ selected }}
       onPress={onPress}
       style={[styles.chip, selected && styles.chipSelected]}
+      testID={testID}
     >
       <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
         {label}
@@ -471,6 +495,7 @@ const styles = StyleSheet.create({
   },
   unitRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   chip: {
@@ -480,6 +505,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: 'transparent',
+    flexShrink: 0,
   },
   chipSelected: {
     borderColor: colors.borderSelected,

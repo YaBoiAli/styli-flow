@@ -97,23 +97,7 @@ async function main() {
   await page.goto(BASE, { waitUntil: 'networkidle0', timeout: 60000 });
   await clearQuota(page);
 
-  console.log('A) Premium style → paywall');
-  await page.goto(`${BASE}/style`, { waitUntil: 'networkidle0' });
-  await clickTestId(page, 'style-card-Runway');
-  await waitForText(page, 'Your closet just got smarter.');
-  assert(
-    (await page.evaluate(() => document.body.innerText)).includes('Start Premium'),
-    'missing Start Premium',
-  );
-  await page.screenshot({
-    path: '/opt/cursor/artifacts/stage5-pro-style-paywall.png',
-    fullPage: true,
-  });
-  console.log('   ok');
-
-  console.log('B) Exhaust free generations');
-  await page.goto(BASE, { waitUntil: 'networkidle0' });
-  await clearQuota(page);
+  console.log('A) Exhaust free generations');
 
   const outcomes = [];
   for (let i = 1; i <= 4; i += 1) {
@@ -164,7 +148,7 @@ async function main() {
     fullPage: true,
   });
 
-  console.log('C) Profile Free Plan');
+  console.log('B) Profile Free Plan');
   await page.goto(`${BASE}/profile`, { waitUntil: 'networkidle0' });
   await waitForText(page, 'Free Plan');
   await page.screenshot({ path: '/opt/cursor/artifacts/stage5-profile-free.png' });

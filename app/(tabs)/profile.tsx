@@ -50,7 +50,7 @@ export default function ProfileScreen() {
 
   if (authLoading || loading || subLoading) {
     return (
-      <Screen scroll={false} contentStyle={styles.centered}>
+      <Screen overTabs scroll={false} contentStyle={styles.centered}>
         <ActivityIndicator color={colors.text} />
       </Screen>
     );
@@ -59,6 +59,7 @@ export default function ProfileScreen() {
   if (!isAuthenticated) {
     return (
       <Screen
+        overTabs
         contentStyle={styles.content}
         footer={
           <View style={styles.actions}>
@@ -105,6 +106,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen
+      overTabs
       contentStyle={styles.content}
       footer={
         <PrimaryButton
@@ -148,7 +150,7 @@ export default function ProfileScreen() {
         {!isPremium ? (
           <>
             <Text style={styles.hint}>
-              Unlock unlimited AI fits, premium styles, and rebuilds.
+              Unlock unlimited AI fits, saves, and rebuilds.
             </Text>
             <PrimaryButton
               label="Upgrade to Vibe Pro"
@@ -156,7 +158,7 @@ export default function ProfileScreen() {
             />
           </>
         ) : (
-          <Text style={styles.hint}>Unlimited generations and premium styles.</Text>
+          <Text style={styles.hint}>Unlimited generations, saves, and rebuilds.</Text>
         )}
       </View>
     </Screen>

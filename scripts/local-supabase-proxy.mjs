@@ -3,6 +3,8 @@
  * - /auth/v1/*  → lightweight GoTrue-compatible auth
  * - /rest/v1/*  → PostgREST :3001
  * - /functions/v1/generate-outfit → Deno :54331
+ * - /functions/v1/resolve-brand   → Deno :54332
+ * - /functions/v1/sync-catalog    → Deno :54333
  */
 import http from 'http';
 import crypto from 'crypto';
@@ -14,7 +16,9 @@ const { Pool } = pg;
 
 const PROXY_PORT = 54321;
 const POSTGREST = 'http://127.0.0.1:3001';
-const FUNCTION = 'http://127.0.0.1:54331';
+const GENERATE_OUTFIT = 'http://127.0.0.1:54331';
+const RESOLVE_BRAND = 'http://127.0.0.1:54332';
+const SYNC_CATALOG = 'http://127.0.0.1:54333';
 const JWT_SECRET = new TextEncoder().encode(
   'styli-local-dev-jwt-secret-at-least-32-chars!!',
 );
@@ -290,7 +294,17 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (url.pathname.startsWith('/functions/v1/generate-outfit')) {
-    proxy(req, res, FUNCTION, () => '/');
+    proxy(req, res, GENERATE_OUTFIT, () => '/');
+    return;
+  }
+
+  if (url.pathname.startsWith('/functions/v1/resolve-brand')) {
+    proxy(req, res, RESOLVE_BRAND, () => '/');
+    return;
+  }
+
+  if (url.pathname.startsWith('/functions/v1/sync-catalog')) {
+    proxy(req, res, SYNC_CATALOG, () => '/');
     return;
   }
 
@@ -302,6 +316,6 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { error: 'Not found' });
 });
 
-server.listen(PROXY_PORT, '127.0.0.1', () => {
-  console.log(`Local Supabase proxy (auth+rest+fn) on http://127.0.0.1:${PROXY_PORT}`);
+server.listen(PROXY_PORT, '0.0.0.0', () => {
+  console.log(`Local Supabase proxy (auth+rest+fn) on http://0.0.0.0:${PROXY_PORT}`);
 });

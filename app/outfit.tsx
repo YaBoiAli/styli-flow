@@ -9,7 +9,10 @@ import { Screen } from '@/components/Screen';
 import { useAuth } from '@/context/AuthContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { FREE_SAVE_LIMIT } from '@/constants/subscriptions';
+import {
+  FREE_SAVE_LIMIT,
+  UNLIMITED_FITS_FOR_TESTING,
+} from '@/constants/subscriptions';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
   countSavedOutfits,
@@ -29,8 +32,11 @@ export default function OutfitScreen() {
     selectedStyle,
     selectedOccasion,
     selectedBudget,
+    shoesInBudget,
+    shoeBudget,
     generatedOutfit,
     generationError,
+    generationErrorCode,
     prepareRebuild,
   } = usePreferences();
   const { isAuthenticated, user, setPendingSaveOutfit } = useAuth();
@@ -64,25 +70,36 @@ export default function OutfitScreen() {
   }
 
   if (generationError || !generatedOutfit) {
+    const brandProblem =
+      generationErrorCode === 'brands_unavailable' ||
+      generationErrorCode === 'brands_no_fit';
     return (
       <Screen
         contentStyle={styles.content}
         footer={
           <View style={styles.actions}>
-            <PrimaryButton
-              label="Try again"
-              onPress={() => {
-                void (async () => {
-                  const allowed = await checkCanGenerate();
-                  if (!allowed) {
-                    router.push('/paywall?redirect=/generation');
-                    return;
-                  }
-                  prepareRebuild();
-                  router.replace('/generation');
-                })();
-              }}
-            />
+            {brandProblem ? (
+              <PrimaryButton
+                label="Change brands"
+                testID="btn-change-brands"
+                onPress={() => router.replace('/brands')}
+              />
+            ) : (
+              <PrimaryButton
+                label="Try again"
+                onPress={() => {
+                  void (async () => {
+                    const allowed = await checkCanGenerate();
+                    if (!allowed) {
+                      router.push('/paywall?redirect=/generation');
+                      return;
+                    }
+                    prepareRebuild();
+                    router.replace('/generation');
+                  })();
+                }}
+              />
+            )}
             <PrimaryButton
               label="Adjust budget"
               variant="secondary"
@@ -94,7 +111,11 @@ export default function OutfitScreen() {
         <BackButton fallbackHref="/budget" />
         <View style={styles.errorBlock}>
           <Text style={styles.errorEyebrow}>Almost</Text>
-          <Text style={styles.errorTitle}>Couldn&apos;t lock the fit</Text>
+          <Text style={styles.errorTitle}>
+            {generationErrorCode === 'brands_unavailable'
+              ? 'Your brands aren\u2019t ready yet'
+              : 'Couldn\u2019t lock the fit'}
+          </Text>
           <Text style={styles.errorBody}>
             {friendlyError(
               generationError,
@@ -218,7 +239,7 @@ export default function OutfitScreen() {
             label="Rebuild"
             variant="ghost"
             onPress={() => {
-              if (!isPremium) {
+              if (!isPremium && !UNLIMITED_FITS_FOR_TESTING) {
                 router.push('/paywall?redirect=/outfit');
                 return;
               }
@@ -238,7 +259,10 @@ export default function OutfitScreen() {
       }
     >
       <BackButton fallbackHref="/budget" />
-      <OutfitCard outfit={generatedOutfit} budget={selectedBudget} />
+      <OutfitCard
+        outfit={generatedOutfit}
+        budget={selectedBudget + (shoesInBudget ? 0 : shoeBudget ?? 0)}
+      />
     </Screen>
   );
 }

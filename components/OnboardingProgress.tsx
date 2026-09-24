@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { colors, radii, spacing, typography } from '@/constants/theme';
 
 const STEPS = [
+  'You',
   'Fit',
   'Vibe',
   'Occasion',

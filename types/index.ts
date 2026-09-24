@@ -77,20 +77,34 @@ export type InspirationSource =
   | { id: string; kind: 'image'; image: InspirationImage }
   | { id: string; kind: InspirationLinkKind; url: string };
 
-/** A brand the user asked for. Not trusted inventory until reviewed. */
+/** Catalog status of a brand; only `supported` brands have real, shoppable products. */
+export type BrandCatalogStatus = 'pending' | 'checking' | 'supported' | 'unsupported' | 'error';
+
+/** A brand the user added. Only shopped from once its catalog was imported (`supported`). */
 export type BrandRequest = {
   id: string;
   name: string;
   website: string;
-  status: 'requested';
+  status: 'requested' | BrandCatalogStatus;
+  productCount?: number;
+  statusReason?: string | null;
   createdAt: string;
 };
+
+/** Which department to shop; `any` allows both. */
+export type GenderPreference = 'men' | 'women' | 'any';
 
 export type UserPreferences = {
   selectedStyle: Style | null;
   selectedOccasion: Occasion | null;
   selectedBudget: number | null;
+  /** When false, `selectedBudget` excludes shoes and `shoeBudget` caps them. */
+  shoesInBudget: boolean;
+  shoeBudget: number | null;
   bodyMeasurements: BodyMeasurements | null;
+  gender: GenderPreference | null;
+  /** Whole years; set on the You step before Fit. */
+  age: number | null;
   inspirationSources: InspirationSource[];
   /** Empty means "No Preference": every approved brand is eligible. */
   selectedBrands: string[];
