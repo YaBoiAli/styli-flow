@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { OptionCard } from '@/components/OptionCard';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
@@ -43,6 +44,7 @@ export default function OccasionScreen() {
     >
       <View style={styles.top}>
         <BackButton fallbackHref="/style" />
+        <OnboardingProgress step="Occasion" />
         <Text style={styles.title}>What&apos;s the occasion?</Text>
         <Text style={styles.subtitle}>
           We&apos;ll tailor the outfit to where you&apos;re going.

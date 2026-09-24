@@ -11,14 +11,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.styli.app",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "remote-notification",
-          "remote-notification"
-        ],
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "entitlements": {
-        "aps-environment": "development"
       }
     },
     "android": {
@@ -37,13 +30,6 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      [
-        "onesignal-expo-plugin",
-        {
-          "mode": "development",
-          "disableLocation": true
-        }
-      ],
       "expo-router",
       "expo-font",
       [
@@ -61,23 +47,6 @@
     },
     "extra": {
       "eas": {
-        "build": {
-          "experimental": {
-            "ios": {
-              "appExtensions": [
-                {
-                  "targetName": "OneSignalNotificationServiceExtension",
-                  "bundleIdentifier": "com.styli.app.OneSignalNotificationServiceExtension",
-                  "entitlements": {
-                    "com.apple.security.application-groups": [
-                      "group.com.styli.app.onesignal"
-                    ]
-                  }
-                }
-              ]
-            }
-          }
-        },
         "projectId": "bd7e781f-0eb8-4487-90f5-ff60540765bc"
       },
       "router": {}

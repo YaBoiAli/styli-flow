@@ -17,12 +17,93 @@ type Product = {
   occasion_tags: string[];
 };
 
+type Measurements = {
+  unit?: string;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  shoulders_cm?: number | null;
+  chest_cm?: number | null;
+  waist_cm?: number | null;
+  hips_cm?: number | null;
+  thigh_cm?: number | null;
+  inseam_cm?: number | null;
+};
+
+type InspirationInput =
+  | { type: 'image'; file_name?: string | null; mime_type?: string | null }
+  | { type: 'link' | 'pinterest' | 'instagram'; url: string };
+
+type BrandPreference = {
+  mode?: 'selected' | 'no_preference';
+  brands?: string[];
+  requested_brands?: Array<{ name: string; website: string }>;
+};
+
 type GenerateRequest = {
   style: string;
   occasion: string;
   budget: number;
   exclude_product_ids?: string[];
+  measurements?: Measurements | null;
+  inspiration?: InspirationInput[];
+  brand_preference?: BrandPreference;
 };
+
+type StylingContext = {
+  measurements: Record<string, number | string> | null;
+  inspiration: InspirationInput[];
+  preferredBrands: string[];
+  requestedBrands: Array<{ name: string; website: string }>;
+};
+
+function readMeasurements(input: unknown): StylingContext['measurements'] {
+  if (!input || typeof input !== 'object') return null;
+  const out: Record<string, number | string> = {};
+  for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
+    if (key === 'unit' && typeof value === 'string') out.unit = value;
+    else if (typeof value === 'number' && Number.isFinite(value)) out[key] = value;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function readInspiration(input: unknown): InspirationInput[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((item): item is InspirationInput => {
+      if (!item || typeof item !== 'object') return false;
+      const type = (item as { type?: unknown }).type;
+      if (type === 'image') return true;
+      return (
+        (type === 'link' || type === 'pinterest' || type === 'instagram') &&
+        typeof (item as { url?: unknown }).url === 'string'
+      );
+    })
+    .slice(0, 6);
+}
+
+function readStylingContext(body: GenerateRequest): StylingContext {
+  const pref = body.brand_preference ?? {};
+  const preferredBrands =
+    pref.mode === 'selected' && Array.isArray(pref.brands)
+      ? pref.brands.filter((brand) => typeof brand === 'string').slice(0, 40)
+      : [];
+  const requestedBrands = Array.isArray(pref.requested_brands)
+    ? pref.requested_brands
+        .filter(
+          (brand) =>
+            brand &&
+            typeof brand.name === 'string' &&
+            typeof brand.website === 'string',
+        )
+        .slice(0, 10)
+    : [];
+  return {
+    measurements: readMeasurements(body.measurements),
+    inspiration: readInspiration(body.inspiration),
+    preferredBrands,
+    requestedBrands,
+  };
+}
 
 type AiItem = {
   product_id: string;
@@ -171,6 +252,7 @@ async function callOpenAI(params: {
   excludeIds: string[];
   attempt: number;
   stricter: boolean;
+  context: StylingContext;
 }): Promise<AiOutfit> {
   const apiKey = Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) {
@@ -192,7 +274,11 @@ Rules:
 - Every product_id must come from the candidate list.
 - Prefer cohesive color/style for the requested vibe and occasion.
 - Keep the total of selected candidate prices <= budget.
-- Do not include duplicate categories.`;
+- Do not include duplicate categories.
+- If body measurements are provided, favor cuts and silhouettes that flatter them.
+- If inspiration links are provided, use them only as style direction; you cannot open them.
+- If preferred brands are provided, favor candidates from those brands.
+- Requested brands are unreviewed suggestions. Never treat them as available inventory.`;
 
   const user = {
     style: params.style,
@@ -204,6 +290,10 @@ Rules:
     instruction: params.stricter
       ? 'Previous attempt exceeded budget or was invalid. Choose cheaper compatible pieces and omit optional items if needed.'
       : 'Build the best outfit within budget.',
+    measurements: params.context.measurements,
+    inspiration: params.context.inspiration,
+    preferred_brands: params.context.preferredBrands,
+    requested_brands: params.context.requestedBrands,
     candidates: params.candidates,
   };
 
@@ -441,10 +531,28 @@ async function handler(req: Request): Promise<Response> {
       return friendlyError('network', 500);
     }
 
-    const products = (data ?? []).map((row) => ({
+    const allProducts = (data ?? []).map((row) => ({
       ...row,
       price: asNumber(row.price),
     })) as Product[];
+
+    const context = readStylingContext(body);
+
+    // Prefer the user's brands, but never fail a fit because of them.
+    const brandSet = new Set(
+      context.preferredBrands.map((brand) => normalizeTag(brand)),
+    );
+    const brandProducts = brandSet.size
+      ? allProducts.filter((product) => brandSet.has(normalizeTag(product.brand)))
+      : [];
+    const products =
+      brandProducts.length &&
+      canBuildCoreOutfit(
+        filterCandidates(brandProducts, style, occasion, budget, excludeIds),
+        budget,
+      )
+        ? brandProducts
+        : allProducts;
 
     const candidates = filterCandidates(
       products,
@@ -499,6 +607,7 @@ async function handler(req: Request): Promise<Response> {
               excludeIds: excludedList,
               attempt,
               stricter,
+              context,
             })
           : allowHeuristic
           ? heuristicOutfit(

@@ -59,6 +59,16 @@ export type OutfitItem = {
   reason: string;
 };
 
+/** Database row for public.brand_requests (user-suggested, unreviewed brands) */
+export type BrandRequestRow = {
+  id: string;
+  user_id: string | null;
+  brand_name: string;
+  website_url: string;
+  status: 'requested' | 'approved' | 'rejected';
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -92,6 +102,14 @@ export type Database = {
         Row: OutfitItem;
         Insert: Omit<OutfitItem, 'id'> & { id?: string };
         Update: Partial<OutfitItem>;
+        Relationships: [];
+      };
+      brand_requests: {
+        Row: BrandRequestRow;
+        Insert: Omit<BrandRequestRow, 'id' | 'status' | 'created_at'> & {
+          id?: string;
+        };
+        Update: Partial<BrandRequestRow>;
         Relationships: [];
       };
     };

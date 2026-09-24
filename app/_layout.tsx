@@ -35,11 +35,6 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
-      void initAnalytics().then(() => {
-        trackAppOpened();
-      });
-      // Initialize OneSignal only — never request permission on launch.
-      void initNotifications();
     }
   }, [loaded]);
 
@@ -60,9 +55,12 @@ export default function RootLayout() {
             }}
           >
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="measurements" />
             <Stack.Screen name="style" />
             <Stack.Screen name="occasion" />
             <Stack.Screen name="budget" />
+            <Stack.Screen name="inspiration" />
+            <Stack.Screen name="brands" />
             <Stack.Screen name="generation" />
             <Stack.Screen name="outfit" />
             <Stack.Screen name="paywall" options={{ presentation: 'modal' }} />

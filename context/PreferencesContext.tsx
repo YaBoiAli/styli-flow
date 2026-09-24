@@ -7,12 +7,28 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { Occasion, Outfit, Style, UserPreferences } from '@/types';
+import type {
+  BodyMeasurements,
+  BrandRequest,
+  InspirationSource,
+  Occasion,
+  Outfit,
+  Style,
+  UserPreferences,
+} from '@/types';
 
 type PreferencesContextValue = UserPreferences & {
   setStyle: (style: Style) => void;
   setOccasion: (occasion: Occasion) => void;
   setBudget: (budget: number) => void;
+  setBodyMeasurements: (measurements: BodyMeasurements) => void;
+  addInspirationSource: (source: InspirationSource) => void;
+  replaceInspirationSource: (id: string, source: InspirationSource) => void;
+  removeInspirationSource: (id: string) => void;
+  toggleBrand: (brand: string) => void;
+  clearBrands: () => void;
+  addBrandRequest: (request: BrandRequest) => void;
+  removeBrandRequest: (id: string) => void;
   resetPreferences: () => void;
   generatedOutfit: Outfit | null;
   generationError: string | null;
@@ -29,6 +45,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
   const [selectedOccasion, setSelectedOccasion] = useState<Occasion | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<number | null>(null);
+  const [bodyMeasurements, setBodyMeasurementsState] =
+    useState<BodyMeasurements | null>(null);
+  const [inspirationSources, setInspirationSources] = useState<
+    InspirationSource[]
+  >([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [brandRequests, setBrandRequests] = useState<BrandRequest[]>([]);
   const [generatedOutfit, setGeneratedOutfit] = useState<Outfit | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [excludeProductIds, setExcludeProductIds] = useState<string[]>([]);
@@ -43,6 +66,51 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const setBudget = useCallback((budget: number) => {
     setSelectedBudget(budget);
+  }, []);
+
+  const setBodyMeasurements = useCallback((measurements: BodyMeasurements) => {
+    setBodyMeasurementsState(measurements);
+  }, []);
+
+  const addInspirationSource = useCallback((source: InspirationSource) => {
+    setInspirationSources((current) => [...current, source]);
+  }, []);
+
+  const replaceInspirationSource = useCallback(
+    (id: string, source: InspirationSource) => {
+      setInspirationSources((current) =>
+        current.map((existing) => (existing.id === id ? source : existing)),
+      );
+    },
+    [],
+  );
+
+  const removeInspirationSource = useCallback((id: string) => {
+    setInspirationSources((current) =>
+      current.filter((existing) => existing.id !== id),
+    );
+  }, []);
+
+  const toggleBrand = useCallback((brand: string) => {
+    setSelectedBrands((current) =>
+      current.includes(brand)
+        ? current.filter((existing) => existing !== brand)
+        : [...current, brand],
+    );
+  }, []);
+
+  const clearBrands = useCallback(() => {
+    setSelectedBrands([]);
+  }, []);
+
+  const addBrandRequest = useCallback((request: BrandRequest) => {
+    setBrandRequests((current) => [...current, request]);
+  }, []);
+
+  const removeBrandRequest = useCallback((id: string) => {
+    setBrandRequests((current) =>
+      current.filter((existing) => existing.id !== id),
+    );
   }, []);
 
   const clearGeneration = useCallback(() => {
@@ -63,6 +131,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setSelectedStyle(null);
     setSelectedOccasion(null);
     setSelectedBudget(null);
+    setBodyMeasurementsState(null);
+    setInspirationSources([]);
+    setSelectedBrands([]);
+    setBrandRequests([]);
     setGeneratedOutfit(null);
     setGenerationError(null);
     setExcludeProductIds([]);
@@ -73,9 +145,21 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       selectedStyle,
       selectedOccasion,
       selectedBudget,
+      bodyMeasurements,
+      inspirationSources,
+      selectedBrands,
+      brandRequests,
       setStyle,
       setOccasion,
       setBudget,
+      setBodyMeasurements,
+      addInspirationSource,
+      replaceInspirationSource,
+      removeInspirationSource,
+      toggleBrand,
+      clearBrands,
+      addBrandRequest,
+      removeBrandRequest,
       resetPreferences,
       generatedOutfit,
       generationError,
@@ -89,9 +173,21 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       selectedStyle,
       selectedOccasion,
       selectedBudget,
+      bodyMeasurements,
+      inspirationSources,
+      selectedBrands,
+      brandRequests,
       setStyle,
       setOccasion,
       setBudget,
+      setBodyMeasurements,
+      addInspirationSource,
+      replaceInspirationSource,
+      removeInspirationSource,
+      toggleBrand,
+      clearBrands,
+      addBrandRequest,
+      removeBrandRequest,
       resetPreferences,
       generatedOutfit,
       generationError,

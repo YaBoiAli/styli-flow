@@ -17,6 +17,7 @@
     "expo-device": "~57.0.1",
     "expo-file-system": "~57.0.6",
     "expo-font": "~57.0.3",
+    "expo-image-picker": "~57.0.19",
     "expo-linking": "~57.0.9",
     "expo-localization": "~57.0.1",
     "expo-router": "~57.0.20",
@@ -58,10 +59,6 @@
     "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
     "test:auth": "node --env-file=.env scripts/test-auth-saved.mjs",
     "test:subscription": "node --env-file=.env scripts/test-subscription.mjs",
-    "test:analytics": "node scripts/test-analytics.mjs",
-    "test:notifications": "node scripts/test-notifications.mjs",
-    "test:e2e:analytics": "node scripts/e2e-analytics.mjs",
-    "analytics:dev-capture": "node scripts/posthog-dev-capture.mjs",
     "fn:serve": "bash scripts/serve-generate-outfit.sh",
     "test:e2e:subscription": "node scripts/e2e-subscription.mjs"
   },

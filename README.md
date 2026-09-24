@@ -10,8 +10,6 @@ Gen-Z · Minimal · Premium · Fashion-forward.
 - Supabase (Postgres, Auth, Edge Functions)
 - OpenAI (server-side only via Edge Function)
 - RevenueCat (subscriptions / `premium` entitlement)
-- PostHog (product analytics)
-- OneSignal (push notifications)
 
 ## Stage status
 
@@ -20,9 +18,7 @@ Gen-Z · Minimal · Premium · Fashion-forward.
 3. AI outfit generation
 4. Auth + saved outfits
 5. RevenueCat Premium
-6. PostHog analytics
-7. OneSignal push
-8. **Final polish**
+6. **Final polish**
 
 ## Project structure
 
@@ -35,7 +31,7 @@ app/                      # Expo Router screens
 components/               # UI primitives + cards
 constants/                # theme + subscription constants
 context/                  # Auth, Preferences, Subscription
-lib/                      # supabase, generateOutfit, analytics, notifications, purchases
+lib/                      # supabase, generateOutfit, analytics, purchases
 supabase/
   migrations/             # Postgres schema
   functions/generate-outfit/
@@ -59,9 +55,6 @@ Copy `.env.example` → `.env`:
 | `EXPO_PUBLIC_REVENUECAT_API_KEY` | premium | Test Store `test_…` for development |
 | `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` | release | `appl_…` |
 | `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` | release | `goog_…` |
-| `EXPO_PUBLIC_POSTHOG_API_KEY` | analytics | Project API key |
-| `EXPO_PUBLIC_POSTHOG_HOST` | analytics | e.g. `https://us.i.posthog.com` |
-| `EXPO_PUBLIC_ONESIGNAL_APP_ID` | push | OneSignal App ID |
 
 ## Run locally
 
@@ -83,21 +76,19 @@ npm run start
 ```bash
 npm run test:auth
 npm run test:subscription
-npm run test:analytics
-npm run test:notifications
 npm run test:generate   # requires generate-outfit function + catalog
 ```
 
 ## iOS with Expo EAS
 
-OneSignal + RevenueCat need a **custom Dev Client / EAS build** (not Expo Go).
+RevenueCat needs a **custom Dev Client / EAS build** (not Expo Go).
 
 ```bash
 npm install -g eas-cli
 eas login
 eas build:configure
 
-# Development client (Test Store + OneSignal development APNs)
+# Development client (Test Store)
 eas build --profile development --platform ios
 
 # Production / TestFlight
@@ -105,24 +96,15 @@ eas build --profile production --platform ios
 eas submit --platform ios
 ```
 
-`app.json` already includes:
-
-- `onesignal-expo-plugin` (first plugin, `mode: "development"`)
-- iOS `UIBackgroundModes: ["remote-notification"]`
-- `aps-environment: development` (switch to `production` for App Store)
-
 Before shipping:
 
-1. Set `EXPO_PUBLIC_ONESIGNAL_APP_ID`
-2. Upload APNs key in OneSignal
-3. Swap RevenueCat Test Store key → `appl_…`
-4. Set OneSignal plugin `mode` to `"production"` for release builds
+1. Swap RevenueCat Test Store key → `appl_…`
 
 ## Remaining known limitations
 
-- **Expo Go / web**: native IAP (RevenueCat stores) and OneSignal push require a Dev Client / EAS build; web stubs keep the UI usable.
+- **Expo Go / web**: native IAP (RevenueCat stores) requires a Dev Client / EAS build; web stubs keep the UI usable.
 - **Shopping**: product taps open `purchase_url` when present; there is no full checkout flow.
 - **OpenAI**: production Edge Function must set `OPENAI_API_KEY`; local heuristic fallback is for demos only.
-- **RevenueCat / PostHog / OneSignal**: need real project keys for live dashboard data.
+- **RevenueCat**: needs a real project key for live purchase data.
 - **Saves**: free plan is capped; premium unlocks unlimited saves via RevenueCat entitlement.
 - **Rebuild**: premium-gated after the free generation quota.

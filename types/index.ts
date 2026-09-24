@@ -47,10 +47,54 @@ export type Outfit = {
   itemReasons?: Array<{ productId: string; reason: string }>;
 };
 
+export type MeasurementUnit = 'imperial' | 'metric';
+
+/** Stored in centimeters and kilograms so later fit logic stays unit-agnostic. */
+export type BodyMeasurements = {
+  unit: MeasurementUnit;
+  heightCm: number;
+  weightKg: number;
+  shouldersCm: number | null;
+  chestCm: number | null;
+  waistCm: number | null;
+  hipsCm: number | null;
+  thighCm: number | null;
+  inseamCm: number | null;
+};
+
+export type InspirationLinkKind = 'link' | 'pinterest' | 'instagram';
+
+export type InspirationImage = {
+  uri: string;
+  fileName: string | null;
+  mimeType: string | null;
+  fileSize: number | null;
+  width: number;
+  height: number;
+};
+
+export type InspirationSource =
+  | { id: string; kind: 'image'; image: InspirationImage }
+  | { id: string; kind: InspirationLinkKind; url: string };
+
+/** A brand the user asked for. Not trusted inventory until reviewed. */
+export type BrandRequest = {
+  id: string;
+  name: string;
+  website: string;
+  status: 'requested';
+  createdAt: string;
+};
+
 export type UserPreferences = {
   selectedStyle: Style | null;
   selectedOccasion: Occasion | null;
   selectedBudget: number | null;
+  bodyMeasurements: BodyMeasurements | null;
+  inspirationSources: InspirationSource[];
+  /** Empty means "No Preference": every approved brand is eligible. */
+  selectedBrands: string[];
+  brandRequests: BrandRequest[];
 };
 
 export type {

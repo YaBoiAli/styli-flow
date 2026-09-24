@@ -34,6 +34,10 @@ export default function GenerationScreen() {
     selectedStyle,
     selectedOccasion,
     selectedBudget,
+    bodyMeasurements,
+    inspirationSources,
+    selectedBrands,
+    brandRequests,
     excludeProductIds,
     setGeneratedOutfit,
     setGenerationError,
@@ -78,6 +82,8 @@ export default function GenerationScreen() {
         budget: selectedBudget!,
         budget_range: getBudgetRange(selectedBudget!),
         premium_status: premiumStatusLabel(isPremium),
+        inspiration_count: inspirationSources.length,
+        brand_count: selectedBrands.length,
       };
 
       try {
@@ -96,6 +102,10 @@ export default function GenerationScreen() {
           occasion: selectedOccasion!,
           budget: selectedBudget!,
           excludeProductIds,
+          measurements: bodyMeasurements,
+          inspirationSources,
+          selectedBrands,
+          brandRequests,
         });
         if (cancelled) return;
 
@@ -141,6 +151,10 @@ export default function GenerationScreen() {
     selectedStyle,
     selectedOccasion,
     selectedBudget,
+    bodyMeasurements,
+    inspirationSources,
+    selectedBrands,
+    brandRequests,
     excludeProductIds,
     clearGeneration,
     setGeneratedOutfit,

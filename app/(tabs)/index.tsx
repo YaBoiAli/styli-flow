@@ -20,7 +20,7 @@ export default function HomeScreen() {
           testID="btn-get-started"
           onPress={() => {
             trackEvent('onboarding_started');
-            router.push('/style');
+            router.push('/measurements');
           }}
         />
       }

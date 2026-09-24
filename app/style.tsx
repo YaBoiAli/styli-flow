@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { Screen } from '@/components/Screen';
 import { StyleCard } from '@/components/StyleCard';
@@ -42,7 +43,8 @@ export default function StyleScreen() {
       }
     >
       <View style={styles.top}>
-        <BackButton />
+        <BackButton fallbackHref="/measurements" />
+        <OnboardingProgress step="Vibe" />
         <Text style={styles.title}>What&apos;s your vibe?</Text>
         <Text style={styles.subtitle}>Choose one style to start shaping your fit.</Text>
       </View>

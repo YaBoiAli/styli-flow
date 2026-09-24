@@ -1,13 +1,57 @@
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { toUiCategory } from '@/lib/outfitBuilder';
-import type { Occasion, Outfit, Product, Style } from '@/types';
+import type {
+  BodyMeasurements,
+  BrandRequest,
+  InspirationSource,
+  Occasion,
+  Outfit,
+  Product,
+  Style,
+} from '@/types';
 
 export type GenerateOutfitRequest = {
   style: Style;
   occasion: Occasion;
   budget: number;
   excludeProductIds?: string[];
+  measurements?: BodyMeasurements | null;
+  inspirationSources?: InspirationSource[];
+  /** Empty means "No Preference". */
+  selectedBrands?: string[];
+  brandRequests?: BrandRequest[];
 };
+
+function measurementsPayload(measurements: BodyMeasurements | null | undefined) {
+  if (!measurements) return null;
+  return {
+    unit: measurements.unit,
+    height_cm: measurements.heightCm,
+    weight_kg: measurements.weightKg,
+    shoulders_cm: measurements.shouldersCm,
+    chest_cm: measurements.chestCm,
+    waist_cm: measurements.waistCm,
+    hips_cm: measurements.hipsCm,
+    thigh_cm: measurements.thighCm,
+    inseam_cm: measurements.inseamCm,
+  };
+}
+
+/** Local image URIs can't leave the device yet, so images travel as metadata. */
+function inspirationPayload(sources: InspirationSource[] | undefined) {
+  return (sources ?? []).map((source) =>
+    source.kind === 'image'
+      ? {
+          type: 'image' as const,
+          file_name: source.image.fileName,
+          mime_type: source.image.mimeType,
+          file_size: source.image.fileSize,
+          width: source.image.width,
+          height: source.image.height,
+        }
+      : { type: source.kind, url: source.url },
+  );
+}
 
 type EdgeProduct = {
   id: string;
@@ -121,6 +165,17 @@ export async function generateOutfit(
         occasion: request.occasion,
         budget: request.budget,
         exclude_product_ids: request.excludeProductIds ?? [],
+        measurements: measurementsPayload(request.measurements),
+        inspiration: inspirationPayload(request.inspirationSources),
+        brand_preference: {
+          mode: request.selectedBrands?.length ? 'selected' : 'no_preference',
+          brands: request.selectedBrands ?? [],
+          requested_brands: (request.brandRequests ?? []).map((brand) => ({
+            name: brand.name,
+            website: brand.website,
+            status: brand.status,
+          })),
+        },
       }),
     });
   } catch {

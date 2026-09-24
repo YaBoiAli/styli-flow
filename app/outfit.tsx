@@ -46,18 +46,6 @@ export default function OutfitScreen() {
     outfit_total: generatedOutfit?.total,
   };
 
-  // Ask once after the user has seen a successful fit — not on cold launch.
-  useEffect(() => {
-    if (!generatedOutfit || generationError || notificationPromptedRef.current) {
-      return;
-    }
-    notificationPromptedRef.current = true;
-    const timer = setTimeout(() => {
-      void maybeAskNotificationPermission();
-    }, 1400);
-    return () => clearTimeout(timer);
-  }, [generatedOutfit, generationError]);
-
   if (!selectedStyle || !selectedOccasion || !selectedBudget) {
     return (
       <Screen
