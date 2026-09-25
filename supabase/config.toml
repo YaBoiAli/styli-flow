@@ -6,7 +6,7 @@ port = 54321
 
 [db]
 port = 54322
-major_version = 16
+major_version = 17
 
 [db.seed]
 enabled = true
@@ -20,6 +20,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.enrich-product]
+verify_jwt = false
+
+# Authenticates with CATALOG_SYNC_SECRET or the service role. Channel3 key stays server-side.
+[functions.sync-channel3]
 verify_jwt = false
 
 # Anon key is accepted as Bearer so signed-out users can add a brand.

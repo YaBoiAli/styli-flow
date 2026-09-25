@@ -40,7 +40,8 @@ supabase/
     sync-catalog/         # daily refresh of due brands
     enrich-product/       # Gemini classifies one existing product (never invents one)
     enrich-catalog/       # batch: new / updated / schema-changed products only
-    _shared/catalog/      # ProductSource layer (API, affiliate, Shopify, JSON-LD, …)
+    sync-channel3/        # intentional Channel3 search → products (server key only)
+    _shared/catalog/      # ProductSource layer (API, affiliate, Shopify, JSON-LD, Channel3)
   cron/schedule_sync_catalog.sql
   seed.sql                # 148 demo products (`source = 'demo'`)
 scripts/                  # local proxy, seed, probe-brands, verification
@@ -67,6 +68,7 @@ Copy `.env.example` → `.env`:
 | `ENRICH_DELAY_MS` | optional | Pause between Gemini classify calls (default 400) |
 | `EXTERNAL_PRODUCT_SEARCH_PROVIDER` | optional | Set to `serpapi` to enable the last-resort search source |
 | `SERPAPI_API_KEY` | optional | Server-only; used only when the provider above is `serpapi` |
+| `CHANNEL3_API_KEY` | server | Channel3 catalog search. Never `EXPO_PUBLIC_*`. See `docs/CHANNEL3_CATALOG.md` |
 | Affiliate feed env vars | optional | Named in `brands.source_config.affiliate.feed_url_env` (never store the URL or keys in the DB) |
 | `EXPO_PUBLIC_REVENUECAT_API_KEY` | premium | Test Store `test_…` for development |
 | `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` | release | `appl_…` |
@@ -131,7 +133,7 @@ Before shipping:
 
 Gemini never searches the web for clothes. A dedicated source layer finds real products, stores them, and Gemini only ranks IDs from that list.
 
-Sources are tried in this order: official API → affiliate feed → Shopify → public structured data → public product pages → external search. A brand (predefined or custom) is `supported` only after real products were retrieved and normalized. If a store blocks indexing, Styli shows that it isn't available — it never invents a product, price, image, or URL.
+Sources are tried in this order: official API → affiliate feed → Shopify → public structured data → public product pages → external search. Channel3 is a separate, intentional search provider (`sync-channel3`); it is not in the daily brand crawl. A brand (predefined or custom) is `supported` only after real products were retrieved and normalized. If a store blocks indexing, Styli shows that it isn't available — it never invents a product, price, image, or URL.
 
 ```bash
 # Probe a store without writing to the database

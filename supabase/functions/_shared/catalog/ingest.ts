@@ -82,9 +82,9 @@ export async function syncBrand(
 
     if (result.status === 'supported') {
       sourceType = result.source;
-      const products = dedupe(result.listing.products);
+      const products = dedupeNormalizedProducts(result.listing.products);
       found = products.length;
-      upserted = await upsertProducts(supabase, brand, products);
+      upserted = await upsertNormalizedProducts(supabase, brand, products);
       if (brand.domain === 'marcnolan.com') {
         await tagDressShoeBrand(supabase, brand.id);
       }
@@ -138,13 +138,13 @@ export async function syncBrand(
   }
 }
 
-function dedupe(products: NormalizedProduct[]): NormalizedProduct[] {
+export function dedupeNormalizedProducts(products: NormalizedProduct[]): NormalizedProduct[] {
   const byId = new Map<string, NormalizedProduct>();
   for (const product of products) byId.set(`${product.source}|${product.source_product_id}`, product);
   return [...byId.values()];
 }
 
-async function upsertProducts(
+export async function upsertNormalizedProducts(
   supabase: SupabaseClient,
   brand: BrandRow,
   products: NormalizedProduct[],
