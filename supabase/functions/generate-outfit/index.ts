@@ -35,6 +35,10 @@ import {
   skinToneColorScore,
   type SkinTonePreference,
 } from './catalog.ts';
+import { Channel3Client, readChannel3ApiKey } from '../_shared/catalog/channel3/client.ts';
+import { createChannel3SearchBackend } from '../_shared/catalog/searchStrategy/channel3Backend.ts';
+import { emptyLiveRetrieval, resolveGenerationCatalog } from './liveCatalog.ts';
+import { retrieveLiveChannel3Catalog, type LiveRetrieval } from './liveRetrieval.ts';
 
 type Product = CatalogProduct;
 
@@ -678,22 +682,87 @@ async function handler(req: Request): Promise<Response> {
     const selectingBrands = context.preferredBrands.length > 0;
     const localFn = Number.isFinite(Number(Deno.env.get('EDGE_FUNCTION_PORT') ?? ''));
 
-    const catalog = await loadCatalog(supabase, {
-      scope: { brandNames: context.preferredBrands, requestedBrands: context.requestedBrands },
-      gender,
-      maxPrice: Math.max(budget.outfit, budget.shoes ?? 0),
-      allowDemo: Deno.env.get('ALLOW_DEMO_CATALOG') === 'true' || localFn,
+    const fetchLiveCatalogOnce = async (): Promise<LiveRetrieval> => {
+      const apiKey = readChannel3ApiKey({ get: (name) => Deno.env.get(name) });
+      if (!apiKey) {
+        console.log(
+          `[CHANNEL3_LIVE] starting retrieval ${JSON.stringify({ has_api_key: false })}`,
+        );
+        console.log(
+          `[CHANNEL3_LIVE] retrieval complete ${JSON.stringify({
+            used: false,
+            attempted: false,
+            reason: 'missing_api_key',
+            has_api_key: false,
+            query_count: 0,
+            fetched: 0,
+            usable: 0,
+          })}`,
+        );
+        return emptyLiveRetrieval('missing_api_key');
+      }
+      try {
+        return await retrieveLiveChannel3Catalog({
+          backend: createChannel3SearchBackend(new Channel3Client(apiKey)),
+          style,
+          occasion,
+          gender,
+          budget: budget.outfit,
+          shoeBudget: budget.shoes,
+          brands: context.preferredBrands,
+        });
+      } catch (err) {
+        console.log(
+          `[CHANNEL3_LIVE] ${JSON.stringify({
+            used: false,
+            reason: err instanceof Error ? err.message.slice(0, 80) : 'error',
+          })}`,
+        );
+        return { ...emptyLiveRetrieval('error'), attempted: true, reason: 'error' };
+      }
+    };
+    const retrieveLiveOnce = (() => {
+      let cached: Promise<LiveRetrieval> | null = null;
+      return () => {
+        if (!cached) cached = fetchLiveCatalogOnce();
+        return cached;
+      };
+    })();
+
+    const resolved = await resolveGenerationCatalog({
+      retrieveLive: retrieveLiveOnce,
+      loadStored: () =>
+        loadCatalog(supabase, {
+          scope: { brandNames: context.preferredBrands, requestedBrands: context.requestedBrands },
+          gender,
+          maxPrice: Math.max(budget.outfit, budget.shoes ?? 0),
+          allowDemo: Deno.env.get('ALLOW_DEMO_CATALOG') === 'true' || localFn,
+        }),
+      isSufficient: (incoming) => {
+        const filtered = filterCandidates(incoming, style, occasion, budget, excludeIds, skinTone);
+        const groupedLive = groupByCategory(filtered);
+        return (
+          !REQUIRED_CATEGORIES.some((required) => groupedLive[required].length === 0) &&
+          canBuildCoreOutfit(filtered, budget)
+        );
+      },
     });
-    if (!catalog.ok) {
-      if (catalog.code === 'network') return friendlyError('network', 500);
-      return friendlyError(catalog.code, 404, { unavailable_brands: catalog.unavailableBrands });
+
+    if (!resolved.products.length) {
+      if (resolved.fallbackReason === 'network') return friendlyError('network', 500);
+      if (resolved.fallbackReason === 'brands_unavailable' || resolved.fallbackReason === 'catalog_empty') {
+        return friendlyError(resolved.fallbackReason, 404, {
+          unavailable_brands: resolved.unavailableBrands,
+        });
+      }
     }
-    const products = catalog.products;
+
+    const products = resolved.products;
     const brandsNoFit = (candidatePool: Product[]) => {
       const regrouped = groupByCategory(candidatePool);
       return friendlyError(selectingBrands ? 'brands_no_fit' : 'no_products', 404, {
         missing_categories: REQUIRED_CATEGORIES.filter((c) => regrouped[c].length === 0),
-        unavailable_brands: catalog.unavailableBrands,
+        unavailable_brands: resolved.unavailableBrands,
       });
     };
 
@@ -939,8 +1008,9 @@ async function handler(req: Request): Promise<Response> {
           budget: budget.outfit,
           shoe_budget: budget.shoes,
           total_price: finalTotal,
-          catalog_source: catalog.catalogSource,
-          unavailable_brands: catalog.unavailableBrands,
+          catalog_source: resolved.retrievalSource,
+          channel3_retrieval_attempted: resolved.channel3Attempted,
+          unavailable_brands: resolved.unavailableBrands,
           ...toFashionResponseFields(finalFashion),
           ...toFashionCriticFields(finalCritic),
           ...revisionFields,

@@ -60,7 +60,7 @@
     "db:verify": "node --env-file=.env scripts/verify-supabase.mjs",
     "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
     "test:enrich": "npx -y deno run --allow-net --allow-env --allow-read scripts/enrich-sample.ts",
-    "test:outfit-score": "npx tsx supabase/functions/_shared/catalog/outfitScoring.test.ts && npx tsx supabase/functions/generate-outfit/attachFashionScore.test.ts && npx tsx supabase/functions/generate-outfit/outfitCandidates.test.ts && npx tsx supabase/functions/_shared/fashionAI/fashionCritic.test.ts && npx tsx supabase/functions/_shared/fashionAI/outfitRevision.test.ts",
+    "test:outfit-score": "npx tsx supabase/functions/_shared/catalog/outfitScoring.test.ts && npx tsx supabase/functions/generate-outfit/attachFashionScore.test.ts && npx tsx supabase/functions/generate-outfit/outfitCandidates.test.ts && npx tsx supabase/functions/_shared/fashionAI/fashionCritic.test.ts && npx tsx supabase/functions/_shared/fashionAI/outfitRevision.test.ts && npx tsx supabase/functions/generate-outfit/liveCatalog.test.ts",
     "test:phase3-harness": "npx tsx supabase/functions/_shared/fashionAI/phase3Harness.ts",
     "test:channel3-unit": "npx tsx supabase/functions/_shared/catalog/channel3/channel3.test.ts && npx tsx supabase/functions/_shared/catalog/searchStrategy/searchStrategy.test.ts && npx tsx supabase/functions/_shared/catalog/searchStrategy/retrievalQuality.test.ts",
     "test:search-strategy": "npx tsx supabase/functions/_shared/catalog/searchStrategy/searchStrategy.test.ts && npx tsx supabase/functions/_shared/catalog/searchStrategy/retrievalQuality.test.ts",

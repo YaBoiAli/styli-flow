@@ -4,6 +4,23 @@ Channel3 is a **generic, server-side catalog source** for Styli. It searches man
 
 Styli-specific style vocabulary does **not** live in the Channel3 client. Channel3 stays a generic retrieval API. A Styli search strategy sits above it and turns user intent into multiple targeted searches.
 
+During private development/testing, **generate-outfit retrieves Channel3 live, once per request**, then falls back to the existing Supabase catalog. Expo never calls Channel3. The Channel3 key stays server-side.
+
+```
+Expo
+  → generate-outfit
+  → Styli search strategy (once)
+  → LIVE Channel3 (in memory, no product writes)
+  → normalize / filter / rank
+  → enough for top + bottom + shoes?
+        YES → channel3_live
+        PARTIAL → hybrid (fill gaps from Supabase catalog)
+        NO / error / timeout → catalog_fallback
+  → existing candidate generation, scoring, critic, revision
+```
+
+`sync-channel3` is still the persistence/ingest path. generate-outfit does **not** HTTP-call sync-channel3 and does **not** upsert live hits.
+
 ```
 User intent (style / category / occasion / gender / budget / brands)
   → Styli search strategy (targeted queries)
@@ -12,10 +29,9 @@ User intent (style / category / occasion / gender / budget / brands)
   → hard catalog filters
   → Styli catalog relevance score
   → best candidates
-  → existing normalize / upsert
-  → existing enrich-product
+  → existing normalize / upsert          (sync-channel3 only)
+  → existing enrich-product             (sync-channel3 only)
   → products
-  → generate-outfit
 ```
 
 A raw Channel3 query (`query: "shirts"`) still uses the generic single-search path. Styli intent (`style`, `category`, `occasion`) uses the strategy path.
@@ -146,7 +162,24 @@ Deterministic 0–100 with an explainable breakdown:
 
 Logs still include the older style/category/occasion fields plus `query_relevance`, `product_relevance`, `budget_fit`, `gender_fit`, and `source_quality`.
 
-Gemini is not used for retrieval or ranking. Existing Gemini enrichment stays downstream. Live Channel3 ranking after this pass has not been re-smoked in this change.
+Gemini is not used for retrieval or ranking. Existing Gemini enrichment stays downstream.
+
+## Live generate-outfit retrieval
+
+`generate-outfit` calls the **same** search strategy directly (not `sync-channel3`).
+
+| Rule | Behavior |
+| --- | --- |
+| Calls per generation | **One** retrieval phase at the start. Gemini retries and revision reuse that pool. |
+| Persistence | None. Live products stay in memory as `CatalogProduct`s (`id` = `channel3:{id}`). |
+| Enrichment | **Not** run on the live path. `enrich-product` needs a persisted row + a Gemini classify call per item, which is too expensive and would add extra Gemini usage. Live items use Channel3 title/category/price/image plus generate-outfit's existing untagged-row handling. |
+| Sufficiency | Need usable top + bottom + shoes that can form a budget-valid core outfit. 50 tops and 0 shoes is not enough. |
+| Hybrid | Keep live hits; fill missing required categories from the existing catalog. Brand / gender / budget filters still apply. |
+| Brands | Preferred brand names go through existing Channel3 brand search. Unresolved brands are skipped, not replaced with other brands. |
+| Failure | Timeout / 5xx / empty / missing key → catalog fallback. If the catalog also cannot build, existing `brands_no_fit` / `no_products` / `catalog_empty` codes apply. |
+| Response | `catalog_source`: `channel3_live` \| `hybrid` \| `catalog_fallback`. `channel3_retrieval_attempted`: boolean. |
+
+Do not run `npm run test:channel3` unless you explicitly want a live API smoke. Unit tests mock the Channel3 backend.
 
 ## Deduplication
 

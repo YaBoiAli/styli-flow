@@ -87,6 +87,8 @@ export type GenerateOutfitResponse = {
   occasion: string;
   budget: number;
   total_price: number;
+  catalog_source?: 'channel3_live' | 'hybrid' | 'catalog_fallback' | 'live' | 'demo';
+  channel3_retrieval_attempted?: boolean;
   items: EdgeItem[];
   error?: string;
   code?: string;
@@ -225,6 +227,10 @@ export async function generateOutfit(
     payload.items.length < 3
   ) {
     throw new OutfitGenerationError(FRIENDLY_FALLBACK, 'invalid_ai');
+  }
+
+  if (payload.catalog_source) {
+    console.log(`[analytics] catalog_source ${payload.catalog_source}`);
   }
 
   if (
