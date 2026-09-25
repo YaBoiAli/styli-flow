@@ -85,6 +85,9 @@ export async function syncBrand(
       const products = dedupe(result.listing.products);
       found = products.length;
       upserted = await upsertProducts(supabase, brand, products);
+      if (brand.domain === 'marcnolan.com') {
+        await tagDressShoeBrand(supabase, brand.id);
+      }
       if (result.listing.complete) {
         markedUnavailable = await markMissingDiscontinued(supabase, brand.id, runStart);
       }
@@ -178,6 +181,21 @@ async function upsertProducts(
     count += rows.length;
   }
   return count;
+}
+
+/** Marc Nolan shoes are dress footwear — date, work, event, not school or street. */
+async function tagDressShoeBrand(supabase: SupabaseClient, brandId: string): Promise<void> {
+  const { error } = await supabase
+    .from('products')
+    .update({
+      style_tags: ['old money', 'formal', 'preppy', 'quiet luxury'],
+      occasion_tags: ['date', 'event', 'work', 'night out'],
+      formality: 'smart_casual',
+    })
+    .eq('brand_id', brandId)
+    .eq('category', 'shoes')
+    .neq('source', 'demo');
+  if (error) console.error('dress shoe tag failed', error.message);
 }
 
 /** Only called after a complete catalog read, so anything not seen this run is gone. */

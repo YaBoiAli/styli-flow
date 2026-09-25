@@ -5,7 +5,21 @@ import {
   currentSeason,
   occasionFormality,
 } from '../_shared/catalog/fashionAttributes.ts';
+import {
+  isClassyLook,
+  keywordHits,
+  looksLikeDressFootwear,
+  OCCASION_KEYWORDS,
+  parseSkinTone,
+  SKIN_TONE_COLORS,
+  type SkinTonePreference,
+  STYLE_FIT,
+  STYLE_KEYWORDS,
+  STYLE_SILHOUETTE,
+} from '../_shared/catalog/fashionSignals.ts';
 import { freshSince } from '../_shared/catalog/freshness.ts';
+
+export { isClassyLook, parseSkinTone, type SkinTonePreference };
 
 export type ProductCategory = 'top' | 'bottom' | 'shoes' | 'outerwear' | 'accessory';
 
@@ -288,70 +302,15 @@ export async function loadCatalog(
   };
 }
 
-const STYLE_KEYWORDS: Record<string, string[]> = {
-  streetwear: ['hoodie', 'graphic', 'oversized', 'cargo', 'sneaker', 'jogger', 'sweatshirt', 'baggy', 'logo', 'puffer', 'boxy'],
-  y2k: ['baby tee', 'crop', 'low rise', 'flare', 'mini', 'rhinestone', 'velour', 'platform', 'metallic', 'baggy', 'butterfly'],
-  'old money': ['polo', 'oxford', 'cable', 'cashmere', 'loafer', 'chino', 'blazer', 'linen', 'knit', 'pleated', 'wool', 'quarter zip'],
-  minimalist: ['essential', 'basic', 'crew', 'straight', 'solid', 'relaxed', 'plain', 'white', 'black', 'neutral', 'clean'],
-  preppy: ['polo', 'oxford', 'chino', 'cardigan', 'pleated', 'loafer', 'blazer', 'button', 'stripe', 'varsity', 'cable'],
-  athleisure: ['jogger', 'legging', 'track', 'tech', 'performance', 'running', 'training', 'zip', 'fleece', 'sneaker', 'active', 'sweat'],
-  casual: ['tee', 'jean', 'denim', 'crew', 'hoodie', 'sneaker', 'relaxed', 'short', 'flannel', 'sweatshirt'],
-  formal: ['suit', 'blazer', 'dress shirt', 'trouser', 'oxford', 'loafer', 'derby', 'tie', 'wool', 'tailored', 'pleated'],
-  'clean girl': ['ribbed', 'tank', 'slip', 'satin', 'bodysuit', 'straight', 'neutral', 'cream', 'white', 'gold', 'knit'],
-  grunge: ['flannel', 'plaid', 'distressed', 'ripped', 'black', 'boot', 'band', 'washed', 'oversized', 'leather', 'combat'],
-  runway: ['statement', 'leather', 'satin', 'sheer', 'sculpt', 'tailored', 'metallic', 'platform', 'structured', 'oversized'],
-  'quiet luxury': ['cashmere', 'merino', 'wool', 'silk', 'linen', 'suede', 'camel', 'knit', 'tailored', 'loafer', 'trouser'],
-  'dark academia': ['tweed', 'wool', 'cardigan', 'turtleneck', 'trouser', 'oxford', 'loafer', 'brown', 'plaid', 'blazer', 'corduroy'],
-  'elevated streetwear': ['premium', 'heavyweight', 'relaxed', 'suede', 'leather', 'cargo', 'overshirt', 'knit', 'sneaker', 'bomber', 'wide leg'],
-};
-
-const OCCASION_KEYWORDS: Record<string, string[]> = {
-  everyday: ['tee', 'jean', 'sneaker', 'hoodie', 'relaxed', 'crew'],
-  date: ['button', 'knit', 'fitted', 'satin', 'chelsea', 'polo', 'slim'],
-  party: ['satin', 'metallic', 'sequin', 'statement', 'black', 'leather'],
-  school: ['hoodie', 'jean', 'sneaker', 'backpack', 'crew', 'cardigan', 'sweatshirt'],
-  work: ['button', 'chino', 'trouser', 'oxford', 'loafer', 'blazer', 'polo'],
-  vacation: ['linen', 'short', 'sandal', 'camp', 'tank', 'lightweight', 'resort'],
-  event: ['blazer', 'suit', 'tailored', 'loafer', 'oxford', 'dress'],
-  'night out': ['black', 'leather', 'satin', 'boot', 'fitted', 'jacket'],
-};
-
-function keywordHits(text: string, keywords: string[]): number {
-  return keywords.reduce(
-    (hits, keyword) => (new RegExp(`\\b${keyword}s?\\b`).test(text) ? hits + 1 : hits),
-    0,
-  );
+/** Loafers, oxfords, and Marc Nolan footwear — not sneakers. */
+export function isDressFootwear(product: CatalogProduct): boolean {
+  return looksLikeDressFootwear(product);
 }
 
 function tagsMatch(productTags: string[], wanted: string[]): boolean {
   const have = new Set(productTags.map(attrKey));
   return wanted.some((tag) => have.has(attrKey(tag)));
 }
-
-const STYLE_FIT: Record<string, string[]> = {
-  streetwear: ['relaxed', 'oversized', 'loose'],
-  y2k: ['fitted', 'slim', 'oversized'],
-  'old money': ['regular', 'slim', 'fitted'],
-  old_money: ['regular', 'slim', 'fitted'],
-  minimalist: ['regular', 'relaxed', 'slim'],
-  preppy: ['regular', 'fitted'],
-  athleisure: ['relaxed', 'fitted'],
-  formal: ['slim', 'fitted', 'regular'],
-  grunge: ['oversized', 'relaxed', 'loose'],
-  'quiet luxury': ['regular', 'slim', 'fitted'],
-  quiet_luxury: ['regular', 'slim', 'fitted'],
-};
-
-const STYLE_SILHOUETTE: Record<string, string[]> = {
-  streetwear: ['baggy', 'boxy', 'oversized', 'wide_leg'],
-  y2k: ['cropped', 'baggy', 'low_rise', 'bodycon'],
-  'old money': ['straight', 'regular', 'slim'],
-  old_money: ['straight', 'regular', 'slim'],
-  minimalist: ['straight', 'regular', 'boxy'],
-  preppy: ['straight', 'regular'],
-  formal: ['straight', 'slim', 'regular'],
-  grunge: ['oversized', 'baggy', 'straight'],
-};
 
 /** Relevance of a product to the vibe/occasion from enriched attrs, tags, or text. */
 export function relevanceScore(
@@ -400,42 +359,8 @@ export function relevanceScore(
     score += index === 0 ? hits * 2 : hits;
   }
   score += keywordHits(text, OCCASION_KEYWORDS[occasion.toLowerCase()] ?? OCCASION_KEYWORDS[occasionTag] ?? []);
+  if (isDressFootwear(product) && isClassyLook(styleTags[0] ?? '', occasion)) score += 5;
   return score;
-}
-
-export type SkinTonePreference = 'fair' | 'light' | 'medium' | 'tan' | 'deep' | 'rich';
-
-const SKIN_TONE_COLORS: Record<SkinTonePreference, { prefer: string[]; avoid: string[] }> = {
-  fair: {
-    prefer: ['navy', 'burgundy', 'forest', 'emerald', 'charcoal', 'black', 'cobalt', 'wine', 'plum', 'ivory', 'white'],
-    avoid: ['beige', 'nude', 'orange', 'peach', 'yellow', 'camel'],
-  },
-  light: {
-    prefer: ['olive', 'camel', 'navy', 'rust', 'cream', 'forest', 'burgundy', 'rose', 'white', 'ivory'],
-    avoid: ['neon', 'yellow', 'orange'],
-  },
-  medium: {
-    prefer: ['gold', 'rust', 'olive', 'cream', 'terracotta', 'teal', 'white', 'camel', 'burgundy', 'navy'],
-    avoid: ['muddy', 'grey'],
-  },
-  tan: {
-    prefer: ['white', 'cream', 'gold', 'coral', 'olive', 'cobalt', 'emerald', 'ivory', 'navy'],
-    avoid: ['brown', 'khaki', 'tan', 'beige'],
-  },
-  deep: {
-    prefer: ['white', 'ivory', 'gold', 'emerald', 'cobalt', 'red', 'royal', 'yellow', 'fuchsia'],
-    avoid: ['brown', 'beige', 'khaki', 'olive'],
-  },
-  rich: {
-    prefer: ['white', 'gold', 'emerald', 'cobalt', 'red', 'fuchsia', 'royal', 'cream', 'silver'],
-    avoid: ['brown', 'beige', 'khaki', 'tan'],
-  },
-};
-
-export function parseSkinTone(value: unknown): SkinTonePreference | null {
-  if (typeof value !== 'string') return null;
-  const key = value.trim().toLowerCase();
-  return key in SKIN_TONE_COLORS ? (key as SkinTonePreference) : null;
 }
 
 /** Extra points when a product's colors sit well on the shopper's complexion. */

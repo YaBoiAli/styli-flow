@@ -11,8 +11,8 @@ const APPROVED = [
   'levi.com', 'factory.jcrew.com', 'bananarepublicfactory.com', 'abercrombie.com', 'hm.com',
   'uniqlo.com', 'nike.com', 'adidas.com', 'puma.com', 'champion.com', 'calvinklein.us',
   'tommy.com', 'ralphlauren.com', 'pacsun.com', 'forever21.com', 'urbanoutfitters.com',
-  'asos.com', 'mango.com', 'express.com', 'reebok.com', 'newbalance.com', 'dickies.com',
-  'carhartt.com', 'vans.com', 'converse.com',
+  'asos.com', 'mango.com', 'express.com', 'reebok.com', 'newbalance.com',
+  'carhartt.com', 'vans.com', 'converse.com', 'marcnolan.com',
 ];
 
 const args = Deno.args.filter((arg) => !arg.startsWith('--'));

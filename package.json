@@ -60,6 +60,8 @@
     "db:verify": "node --env-file=.env scripts/verify-supabase.mjs",
     "test:generate": "node --env-file=.env scripts/test-generate-outfit.mjs",
     "test:enrich": "npx -y deno run --allow-net --allow-env --allow-read scripts/enrich-sample.ts",
+    "test:outfit-score": "npx tsx supabase/functions/_shared/catalog/outfitScoring.test.ts && npx tsx supabase/functions/generate-outfit/attachFashionScore.test.ts && npx tsx supabase/functions/generate-outfit/outfitCandidates.test.ts && npx tsx supabase/functions/_shared/fashionAI/fashionCritic.test.ts && npx tsx supabase/functions/_shared/fashionAI/outfitRevision.test.ts",
+    "test:phase3-harness": "npx tsx supabase/functions/_shared/fashionAI/phase3Harness.ts",
     "test:auth": "node --env-file=.env scripts/test-auth-saved.mjs",
     "test:subscription": "node --env-file=.env scripts/test-subscription.mjs",
     "fn:serve": "bash scripts/serve-generate-outfit.sh",

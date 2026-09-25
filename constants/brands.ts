@@ -38,10 +38,10 @@ const BRAND_LIST: ApprovedBrand[] = [
   { name: 'Express', domain: 'express.com', hint: 'Going-out and work' },
   { name: 'Reebok', domain: 'reebok.com', hint: 'Retro athletic' },
   { name: 'New Balance', domain: 'newbalance.com', hint: 'Dad-shoe icons' },
-  { name: 'Dickies', domain: 'dickies.com', hint: 'Workwear cool' },
   { name: 'Carhartt', domain: 'carhartt.com', hint: 'Rugged workwear' },
   { name: 'Vans', domain: 'vans.com', hint: 'Skate classics' },
   { name: 'Converse', domain: 'converse.com', hint: 'Canvas icons', sharpLogo: false },
+  { name: 'Marc Nolan', domain: 'marcnolan.com', hint: 'Dress loafers and boots' },
 ];
 
 /** Brands the stylist is allowed to shop from, deduplicated by name. */

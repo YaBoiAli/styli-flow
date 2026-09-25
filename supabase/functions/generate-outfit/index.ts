@@ -1,12 +1,35 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 import { corsHeaders, friendlyError, jsonResponse } from '../_shared/cors.ts';
+import { currentSeason } from '../_shared/catalog/fashionAttributes.ts';
+import { scoreOutfit } from '../_shared/catalog/outfitScoring.ts';
+import { styleAliasTags } from '../_shared/catalog/fashionSignals.ts';
+import { applyOutfitRevision } from '../_shared/fashionAI/applyOutfitRevision.ts';
+import {
+  criticProductsFromCatalog,
+  revisionCatalogFromProducts,
+} from '../_shared/fashionAI/criticInput.ts';
+import { createFashionAIProvider } from '../_shared/fashionAI/createProvider.ts';
+import {
+  critiqueWinningOutfit,
+  toFashionCriticFields,
+} from '../_shared/fashionAI/critiqueWinningOutfit.ts';
+import { logOutfitScore, toFashionResponseFields } from './attachFashionScore.ts';
+import {
+  type AiItem,
+  type AiOutfit,
+  evaluateOutfitCandidates,
+  logOutfitCandidates,
+  parseGeminiOutfitCandidates,
+} from './outfitCandidates.ts';
 import {
   type CatalogProduct,
   type GenderPreference,
   inferProductGender,
   loadCatalog,
   type ProductCategory,
+  isClassyLook,
+  isDressFootwear,
   parseSkinTone,
   relevanceScore,
   skinToneColorScore,
@@ -114,17 +137,6 @@ function readStylingContext(body: GenerateRequest): StylingContext {
   };
 }
 
-type AiItem = {
-  product_id: string;
-  reason: string;
-};
-
-type AiOutfit = {
-  outfit_name: string;
-  items: AiItem[];
-  styling_tip: string;
-};
-
 const REQUIRED_CATEGORIES: ProductCategory[] = ['top', 'bottom', 'shoes'];
 const OPTIONAL_CATEGORIES: ProductCategory[] = ['outerwear', 'accessory'];
 const MAX_ATTEMPTS = 3;
@@ -188,18 +200,6 @@ function groupByCategory(products: Product[]): Record<ProductCategory, Product[]
   return groups;
 }
 
-/** Map UI styles (including premium) onto catalog style_tags. */
-function styleAliasTags(style: string): string[] {
-  const styleTag = normalizeTag(style);
-  const aliases: Record<string, string[]> = {
-    runway: ['formal', 'old money', 'y2k'],
-    'quiet luxury': ['old money', 'minimalist'],
-    'dark academia': ['preppy', 'grunge', 'formal'],
-    'elevated streetwear': ['streetwear', 'athleisure', 'minimalist'],
-  };
-  return [styleTag, ...(aliases[styleTag] ?? [])];
-}
-
 /** Takes up to `count` items in rank order, rotating through brands so one store can't fill the list. */
 function spreadAcrossBrands(ranked: Product[], count: number): Product[] {
   const byBrand = new Map<string, Product[]>();
@@ -228,9 +228,12 @@ function filterCandidates(
 ): Product[] {
   const styleTags = styleAliasTags(style);
 
+  const classy = isClassyLook(style, occasion);
   const affordable = products.filter(
     (product) =>
-      !excludeIds.has(product.id) && asNumber(product.price) <= priceCap(budget, product),
+      !excludeIds.has(product.id) &&
+      asNumber(product.price) <= priceCap(budget, product) &&
+      (!isDressFootwear(product) || classy),
   );
   const scores = new Map(
     affordable.map((product) => [
@@ -309,34 +312,6 @@ function vibeSeed(style: string, occasion: string): number {
   return hash;
 }
 
-function parseAiJson(content: string): AiOutfit {
-  const trimmed = content.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = fenced ? fenced[1].trim() : trimmed;
-  const parsed = JSON.parse(raw) as AiOutfit;
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('invalid_ai');
-  }
-  if (typeof parsed.outfit_name !== 'string' || !parsed.outfit_name.trim()) {
-    throw new Error('invalid_ai');
-  }
-  if (typeof parsed.styling_tip !== 'string' || !parsed.styling_tip.trim()) {
-    throw new Error('invalid_ai');
-  }
-  if (!Array.isArray(parsed.items) || parsed.items.length < 3) {
-    throw new Error('invalid_ai');
-  }
-  for (const item of parsed.items) {
-    if (!item || typeof item.product_id !== 'string' || !item.product_id) {
-      throw new Error('invalid_ai');
-    }
-    if (typeof item.reason !== 'string') {
-      throw new Error('invalid_ai');
-    }
-  }
-  return parsed;
-}
-
 const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash';
 
@@ -357,7 +332,7 @@ async function callGemini(params: {
   context: StylingContext;
   gender: GenderPreference;
   skinTone: SkinTonePreference | null;
-}): Promise<AiOutfit> {
+}): Promise<AiOutfit[]> {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) {
     throw new Error('ai_missing');
@@ -372,28 +347,40 @@ async function callGemini(params: {
 
   const system = `You are Styli, an expert fashion stylist.
 The candidates are real products retrieved from the user's chosen stores.
-Your job is only to choose and rank among them: choose a complete outfit ONLY from the provided candidate products.
+Your job is only to choose and rank among them: propose up to 5 complete outfits ONLY from the provided candidate products.
 Return product_id values from that list only.
 Never invent products, IDs, names, prices, images, brands, or links.
 Return ONLY valid JSON with this shape:
 {
   "outfit_name": string,
-  "items": [{ "product_id": string, "reason": string }],
-  "styling_tip": string
+  "styling_tip": string,
+  "candidates": [
+    {
+      "top_id": string,
+      "bottom_id": string,
+      "shoes_id": string,
+      "outerwear_id": string | null,
+      "accessory_id": string | null,
+      "reason": string
+    }
+  ]
 }
 Rules:
-- Include exactly one top, one bottom, and one shoes item.
-- Optionally include one outerwear and/or one accessory ONLY if the outfit still stays within budget.
-- Every product_id must come from the candidate list.
+- Return up to 5 candidates. Fewer is fine if the catalog cannot support more valid looks.
+- Each candidate must include exactly one top, one bottom, and one shoes item.
+- Optionally include one outerwear and/or one accessory ONLY if that candidate still stays within budget.
+- Every id must come from the candidate list. Do not reuse the same product twice in one candidate.
 - Shop for ${shopFor}. Never pick women's-coded pieces (skirts, dresses, heels, baby tees, crop tops, Mary Janes, blouses) when shopping for men. Never pick men's-only pieces when shopping for women.
 - Strongly match the requested vibe. A Streetwear fit must not look like Old Money or Y2K.
 - Prefer cohesive color/style for the requested vibe and occasion.
-- If exclude_product_ids is non-empty, build a different fit — do not reuse those products.
+- Explore meaningful variation when the catalog allows: different colors, silhouettes, layering, or footwear. Do not invent variety the catalog cannot support, and never break the user's style, occasion, budget, gender, or brand constraints for diversity.
+- If exclude_product_ids is non-empty, build different fits — do not reuse those products.
 - If shoe_budget is null, keep the total of all selected candidate prices <= budget.
 - If shoe_budget is a number, shoes are budgeted separately: the shoes item must cost <= shoe_budget, and all other selected items together must cost <= budget.
 - Do not include duplicate categories.
 - If body measurements are provided, favor cuts and silhouettes that flatter them.
 - If skin_tone is set, prefer candidate colors that flatter that complexion. Do not invent colors or products.
+- Dress shoes (loafers, oxfords, Marc Nolan) are only in the list for date, work, event, night out, or classy vibes. Do not force them into street or school fits.
 - If inspiration links are provided, use them only as style direction; you cannot open them.
 - Candidates are already limited to the user's brands and fit preference; judge them on style, color and occasion.`;
 
@@ -408,10 +395,10 @@ Rules:
     attempt: params.attempt,
     stricter: params.stricter,
     instruction: params.stricter
-      ? 'Previous attempt exceeded budget or was invalid. Choose cheaper compatible pieces and omit optional items if needed.'
+      ? 'Previous attempt exceeded budget or was invalid. Propose up to 5 cheaper compatible outfits and omit optional items if needed.'
       : params.excludeIds.length
-        ? 'Build a different outfit than the excluded products, still matching the vibe.'
-        : 'Build the best outfit within budget for this vibe.',
+        ? 'Propose up to 5 different outfits than the excluded products, still matching the vibe.'
+        : 'Propose up to 5 complete outfits within budget for this vibe. Vary them when the catalog allows.',
     measurements: params.context.measurements,
     inspiration: params.context.inspiration,
     candidates: params.candidates,
@@ -459,7 +446,7 @@ Rules:
     throw new Error('invalid_ai');
   }
 
-  return parseAiJson(content);
+  return parseGeminiOutfitCandidates(content);
 }
 
 /**
@@ -778,45 +765,186 @@ async function handler(req: Request): Promise<Response> {
           attempt - 1,
           skinTone,
         ] as const;
-        const ai = hasGemini
-          ? await callGemini(geminiArgs).catch((err) => {
-              if (!allowHeuristic) throw err;
-              return heuristicOutfit(...heuristicArgs);
-            })
-          : allowHeuristic
-          ? heuristicOutfit(...heuristicArgs)
-          : (() => {
-              throw new Error('ai_missing');
-            })();
+        const productMap = new Map(
+          workingCandidates.map((product) => [product.id, product]),
+        );
+        const evaluate = (outfits: AiOutfit[]) =>
+          evaluateOutfitCandidates({
+            outfits,
+            excludeIds,
+            validate: (outfit) => validateAndBuild(outfit, productMap, budget),
+            productsOf: (built) => built.selected.map(({ product }) => product),
+            score: (products) =>
+              scoreOutfit(products, {
+                style,
+                occasion,
+                skinTone,
+                measurements: context.measurements,
+              }),
+          });
 
-        // Rebuild must not return an identical product set.
-        if (excludeIds.size > 0) {
-          const nextIds = ai.items.map((item) => item.product_id);
-          const same =
-            nextIds.length === excludeIds.size &&
-            nextIds.every((id) => excludeIds.has(id));
-          if (same) {
-            throw new Error('invalid_ai');
+        let geminiOutfits: AiOutfit[] | null = null;
+        if (hasGemini) {
+          try {
+            geminiOutfits = await callGemini(geminiArgs);
+          } catch (err) {
+            if (!allowHeuristic) throw err;
           }
+        } else if (!allowHeuristic) {
+          throw new Error('ai_missing');
         }
 
-        const { selected, totalPrice } = validateAndBuild(
-          ai,
-          new Map(workingCandidates.map((product) => [product.id, product])),
-          budget,
-        );
+        let evaluated = geminiOutfits ? evaluate(geminiOutfits) : null;
+        if (evaluated) {
+          const valid = evaluated.candidates.filter((candidate) => candidate.valid);
+          logOutfitCandidates({
+            count: evaluated.count,
+            valid_count: valid.length,
+            scores: valid.map((candidate) => candidate.score),
+            selected_score: evaluated.winner?.score ?? null,
+            invalid: evaluated.candidates
+              .filter((candidate) => !candidate.valid)
+              .map((candidate) => candidate.reason),
+          });
+        }
+
+        if (!evaluated?.winner && allowHeuristic) {
+          evaluated = evaluate([heuristicOutfit(...heuristicArgs)]);
+        }
+
+        const winner = evaluated?.winner;
+        if (!winner) {
+          throw new Error('invalid_ai');
+        }
+
+        const { selected, totalPrice } = winner.built;
+        const fashion = winner.fashion;
+        logOutfitScore({
+          score: fashion.score,
+          style,
+          occasion,
+          breakdown: fashion.breakdown,
+          issues: fashion.issues,
+        });
+
+        const fashionAI = createFashionAIProvider();
+        const season = currentSeason();
+        const scoringContext = {
+          style,
+          occasion,
+          skinTone,
+          measurements: context.measurements,
+        };
+        const criticInput = {
+          style,
+          occasion,
+          skinTone,
+          measurements: context.measurements,
+          season,
+          products: criticProductsFromCatalog(selected.map(({ product }) => product)),
+        };
+        const critic = await critiqueWinningOutfit(criticInput, fashionAI);
+
+        const placeholderCritic = {
+          overall_assessment: 'acceptable' as const,
+          style_match: 8,
+          color_harmony: 8,
+          proportion: 8,
+          occasion_match: 8,
+          cohesion: 8,
+          strengths: [] as string[],
+          issues: [] as Array<{ type: string; severity: 'minor' | 'moderate' | 'major' }>,
+          recommendations: [] as string[],
+        };
+
+        let finalName = winner.outfit.outfit_name;
+        let finalTip = winner.outfit.styling_tip;
+        let finalSelected = selected;
+        let finalTotal = totalPrice;
+        let finalFashion = fashion;
+        let finalCritic = critic;
+        let revisionFields = {
+          fashion_revision_attempted: false,
+          fashion_revision_accepted: false,
+          fashion_revision_reason: critic.fashion_critic
+            ? 'critic_did_not_identify_meaningful_issue'
+            : 'critic_unavailable',
+        };
+
+        try {
+          const revised = await applyOutfitRevision({
+            critic: critic.fashion_critic,
+            originalCriticRun: critic,
+            original: {
+              outfitName: winner.outfit.outfit_name,
+              stylingTip: winner.outfit.styling_tip,
+              items: selected.map(({ product, reason }) => ({
+                product_id: product.id,
+                reason,
+              })),
+              built: winner.built,
+              products: selected.map(({ product }) => product),
+              fashion,
+            },
+            revisionInput: {
+              style,
+              occasion,
+              skinTone,
+              measurements: context.measurements,
+              season,
+              currentOutfit: criticInput.products,
+              critic: critic.fashion_critic ?? placeholderCritic,
+              catalog: revisionCatalogFromProducts(workingCandidates),
+            },
+            provider: fashionAI,
+            validate: (outfit) => validateAndBuild(outfit, productMap, budget),
+            productsOf: (built) => built.selected.map(({ product }) => product),
+            score: (products) => scoreOutfit(products, scoringContext),
+            critique: (input) => critiqueWinningOutfit(input, fashionAI),
+            criticInputFor: (products) => ({
+              style,
+              occasion,
+              skinTone,
+              measurements: context.measurements,
+              season,
+              products: criticProductsFromCatalog(products),
+            }),
+          });
+          finalName = revised.outfitName;
+          finalTip = revised.stylingTip;
+          finalSelected = revised.built.selected;
+          finalTotal = revised.built.totalPrice;
+          finalFashion = revised.fashion;
+          finalCritic = revised.critic;
+          revisionFields = revised.revision;
+        } catch {
+          // Phase 3 must never fail generation.
+        }
+
+        if (revisionFields.fashion_revision_accepted) {
+          logOutfitScore({
+            score: finalFashion.score,
+            style,
+            occasion,
+            breakdown: finalFashion.breakdown,
+            issues: finalFashion.issues,
+          });
+        }
 
         return jsonResponse({
-          outfit_name: ai.outfit_name,
-          styling_tip: ai.styling_tip,
+          outfit_name: finalName,
+          styling_tip: finalTip,
           style,
           occasion,
           budget: budget.outfit,
           shoe_budget: budget.shoes,
-          total_price: totalPrice,
+          total_price: finalTotal,
           catalog_source: catalog.catalogSource,
           unavailable_brands: catalog.unavailableBrands,
-          items: selected.map(({ product, reason }) => ({
+          ...toFashionResponseFields(finalFashion),
+          ...toFashionCriticFields(finalCritic),
+          ...revisionFields,
+          items: finalSelected.map(({ product, reason }) => ({
             product_id: product.id,
             reason,
             product: {
