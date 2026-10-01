@@ -17,6 +17,7 @@ export type FashionCriticProduct = {
   occasion_tags: string[];
   image_url: string | null;
   image_available: boolean;
+  visual?: Record<string, unknown>;
 };
 
 export type FashionCriticInput = {
@@ -25,6 +26,10 @@ export type FashionCriticInput = {
   skinTone?: string | null;
   measurements?: Record<string, number | string> | null;
   season?: string;
+  /** Absent defaults to include. */
+  footwearPreference?: 'include' | 'none';
+  /** Absent defaults to style_first. */
+  colorPreference?: 'complexion' | 'style_first';
   products: FashionCriticProduct[];
 };
 
@@ -65,6 +70,7 @@ export type FashionRevisionCatalogProduct = {
   style_tags: string[];
   aesthetic_tags: string[];
   occasion_tags: string[];
+  visual?: Record<string, unknown>;
 };
 
 export type FashionRevisionInput = {
@@ -73,6 +79,8 @@ export type FashionRevisionInput = {
   skinTone?: string | null;
   measurements?: Record<string, number | string> | null;
   season?: string;
+  footwearPreference?: 'include' | 'none';
+  colorPreference?: 'complexion' | 'style_first';
   currentOutfit: FashionCriticProduct[];
   critic: FashionCriticResult;
   catalog: FashionRevisionCatalogProduct[];

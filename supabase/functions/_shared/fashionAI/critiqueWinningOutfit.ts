@@ -46,7 +46,7 @@ export function logOutfitCritic(input: {
 }
 
 export function toFashionCriticFields(run: CriticRunResult): FashionCriticAttachment {
-  return run.available && run.fashion_critic
+  return run.fashion_critic_available && run.fashion_critic
     ? { fashion_critic_available: true, fashion_critic: run.fashion_critic }
     : { fashion_critic_available: false };
 }

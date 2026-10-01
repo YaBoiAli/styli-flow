@@ -27,9 +27,11 @@ export default function BudgetScreen() {
     selectedBudget,
     shoesInBudget,
     shoeBudget,
+    footwearPreference,
     setBudget,
     setShoesInBudget,
     setShoeBudget,
+    setFootwearPreference,
   } = usePreferences();
   const { isPremium } = useSubscription();
 
@@ -54,8 +56,10 @@ export default function BudgetScreen() {
     });
   }
 
+  const includeFootwear = footwearPreference !== 'none';
   const hasOutfitBudget = Boolean(selectedBudget && selectedBudget > 0);
-  const hasShoeBudget = shoesInBudget || Boolean(shoeBudget && shoeBudget > 0);
+  const hasShoeBudget =
+    !includeFootwear || shoesInBudget || Boolean(shoeBudget && shoeBudget > 0);
 
   return (
     <Screen
@@ -81,34 +85,65 @@ export default function BudgetScreen() {
       <BudgetSelector
         value={selectedBudget}
         onChange={handleBudgetChange}
-        displayLabel={shoesInBudget ? 'Selected budget' : 'Outfit budget · no shoes'}
+        displayLabel={
+          includeFootwear && !shoesInBudget
+            ? 'Outfit budget · no shoes'
+            : 'Selected budget'
+        }
       />
 
       <View style={styles.shoes}>
         <View style={styles.shoesHeader}>
-          <Text style={styles.sectionTitle}>Include shoes in this budget?</Text>
+          <Text style={styles.sectionTitle}>Footwear</Text>
           <Text style={styles.sectionHint}>
-            Choose No to give shoes a separate budget.
+            Include shoes in the outfit, or generate a footwear-free look.
           </Text>
         </View>
         <View style={styles.toggleRow}>
           <View style={styles.toggleItem}>
             <OptionCard
-              label="Yes"
-              selected={shoesInBudget}
-              onPress={() => setShoesInBudget(true)}
+              label="Include shoes"
+              selected={includeFootwear}
+              onPress={() => setFootwearPreference('include')}
             />
           </View>
           <View style={styles.toggleItem}>
             <OptionCard
-              label="No"
-              selected={!shoesInBudget}
-              onPress={() => setShoesInBudget(false)}
+              label="No shoes"
+              selected={!includeFootwear}
+              onPress={() => setFootwearPreference('none')}
             />
           </View>
         </View>
 
-        {!shoesInBudget ? (
+        {includeFootwear ? (
+          <>
+            <View style={styles.shoesHeader}>
+              <Text style={styles.sectionTitle}>Include shoes in this budget?</Text>
+              <Text style={styles.sectionHint}>
+                Choose No to give shoes a separate budget.
+              </Text>
+            </View>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleItem}>
+                <OptionCard
+                  label="Yes"
+                  selected={shoesInBudget}
+                  onPress={() => setShoesInBudget(true)}
+                />
+              </View>
+              <View style={styles.toggleItem}>
+                <OptionCard
+                  label="No"
+                  selected={!shoesInBudget}
+                  onPress={() => setShoesInBudget(false)}
+                />
+              </View>
+            </View>
+          </>
+        ) : null}
+
+        {includeFootwear && !shoesInBudget ? (
           <View style={styles.shoeBudget} testID="shoe-budget-section">
             <Text style={styles.sectionTitle}>
               Shoe budget{shoeBudget ? ` · $${shoeBudget}` : ''}

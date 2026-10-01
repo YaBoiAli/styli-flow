@@ -19,6 +19,8 @@ Expo
   → existing candidate generation, scoring, critic, revision
 ```
 
+After candidates are filtered (~7 best + 3 cheapest per category), generate-outfit may visually analyze **about 10–15** of those products in memory. Live Channel3 rows are **not** written to Supabase for that cache. Missing images and malformed visual JSON skip analysis and fall back to existing metadata.
+
 `sync-channel3` is still the persistence/ingest path. generate-outfit does **not** HTTP-call sync-channel3 and does **not** upsert live hits.
 
 ```

@@ -3,6 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders, friendlyError, jsonResponse } from '../_shared/cors.ts';
 import { currentSeason } from '../_shared/catalog/fashionAttributes.ts';
 import { scoreOutfit } from '../_shared/catalog/outfitScoring.ts';
+import { enrichProductsWithVisualAttributes } from '../_shared/catalog/visualAnalysis.ts';
+import { visualForPrompt } from '../_shared/catalog/visualAttributes.ts';
 import { styleAliasTags } from '../_shared/catalog/fashionSignals.ts';
 import { applyOutfitRevision } from '../_shared/fashionAI/applyOutfitRevision.ts';
 import {
@@ -20,7 +22,7 @@ import {
   type AiOutfit,
   evaluateOutfitCandidates,
   logOutfitCandidates,
-  parseGeminiOutfitCandidates,
+  tryParseGeminiOutfitCandidates,
 } from './outfitCandidates.ts';
 import {
   type CatalogProduct,
@@ -28,17 +30,75 @@ import {
   inferProductGender,
   loadCatalog,
   type ProductCategory,
-  isClassyLook,
-  isDressFootwear,
   parseSkinTone,
   relevanceScore,
   skinToneColorScore,
   type SkinTonePreference,
 } from './catalog.ts';
+import {
+  asNumber,
+  type BudgetPlan,
+  OPTIONAL_CATEGORIES,
+  fitsBudget,
+  groupByCategory,
+  outfitSpend,
+  poolSnapshotRows,
+  rankWorkingPoolDetailed,
+  shortlistForGemini,
+} from './candidateShortlist.ts';
+import {
+  createGenerationTraceId,
+  fallbackReasonForGemini,
+  generationModeForResponse,
+  genLog,
+  logCandidateScores,
+  logFinalOutfit,
+  logGeminiPool,
+  logMetadataPreservation,
+} from './genTrace.ts';
+import {
+  CANDIDATE_INTERPRETATION_GUIDE,
+  IDENTITY_REUSE_PENALTY,
+  REBUILD_OUTFIT_INSTRUCTION,
+  SHORTLIST_QUALITY_BAND,
+  uniqueProductIds,
+  type PreviousOutfitItem,
+  matchPreviousInCatalog,
+  outfitDiversityScore,
+  parsePreviousOutfit,
+  productIdentityKey,
+  reusePenalty,
+} from './outfitDiversity.ts';
+import {
+  logPerf,
+  logPerfTotal,
+  logSkippedPerfStages,
+  perfNow,
+  resetPerfLog,
+} from '../_shared/perfLog.ts';
 import { Channel3Client, readChannel3ApiKey } from '../_shared/catalog/channel3/client.ts';
 import { createChannel3SearchBackend } from '../_shared/catalog/searchStrategy/channel3Backend.ts';
 import { emptyLiveRetrieval, resolveGenerationCatalog } from './liveCatalog.ts';
-import { retrieveLiveChannel3Catalog, type LiveRetrieval } from './liveRetrieval.ts';
+import { liveRetrievalFromError, retrieveLiveChannel3Catalog, type LiveRetrieval } from './liveRetrieval.ts';
+import {
+  GeminiGenerationError,
+  generateGeminiContent,
+  geminiJsonGenerationConfig,
+  geminiModelsFromEnv,
+  inspectGeminiPayload,
+} from '../_shared/geminiResponse.ts';
+import {
+  assertNoForbiddenFootwear,
+  assertValidOutfitCategories,
+  liveRetrievalCategories,
+  parseColorPreference,
+  parseFootwearPreference,
+  requiredOutfitCategories,
+  sanitizeCriticForFootwear,
+  type ColorPreference,
+  type FootwearPreference,
+  isFootwearProduct,
+} from './footwearPreference.ts';
 
 type Product = CatalogProduct;
 
@@ -70,12 +130,25 @@ type GenerateRequest = {
   budget: number;
   /** When set, shoes are budgeted separately and `budget` covers everything else. */
   shoe_budget?: number | null;
+  /** Absent or any other value defaults to include (existing clients keep shoes). */
+  footwear_preference?: 'include' | 'none';
   exclude_product_ids?: string[];
+  previous_outfit_product_ids?: string[];
+  previous_outfit?: Array<{
+    product_id?: string;
+    id?: string;
+    name?: string;
+    brand?: string;
+    category?: string;
+    color?: string;
+  }>;
   measurements?: Measurements | null;
   inspiration?: InspirationInput[];
   brand_preference?: BrandPreference;
   gender?: GenderPreference;
   skin_tone?: SkinTonePreference | null;
+  /** Absent or any other value defaults to style_first (existing color behavior). */
+  color_preference?: 'complexion' | 'style_first';
   age?: number | null;
 };
 
@@ -141,170 +214,54 @@ function readStylingContext(body: GenerateRequest): StylingContext {
   };
 }
 
-const REQUIRED_CATEGORIES: ProductCategory[] = ['top', 'bottom', 'shoes'];
-const OPTIONAL_CATEGORIES: ProductCategory[] = ['outerwear', 'accessory'];
 const MAX_ATTEMPTS = 3;
-/** Per category: best matches (spread across brands) plus the cheapest remaining, for budget room. */
-const TOP_PICKS_PER_CATEGORY = 7;
-const CHEAP_PICKS_PER_CATEGORY = 3;
 
-function normalizeTag(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function asNumber(value: unknown): number {
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? n : NaN;
-}
-
-type BudgetPlan = {
-  outfit: number;
-  /** null means shoes share the outfit budget. */
-  shoes: number | null;
-};
-
-function isSeparateShoe(plan: BudgetPlan, product: Product): boolean {
-  return plan.shoes !== null && product.category === 'shoes';
-}
-
-function priceCap(plan: BudgetPlan, product: Product): number {
-  return isSeparateShoe(plan, product) ? plan.shoes! : plan.outfit;
-}
-
-/** Spend counted against the outfit budget (excludes separately budgeted shoes). */
-function outfitSpend(plan: BudgetPlan, products: Product[]): number {
-  return products
-    .filter((product) => !isSeparateShoe(plan, product))
-    .reduce((sum, product) => sum + asNumber(product.price), 0);
-}
-
-function fitsBudget(plan: BudgetPlan, products: Product[]): boolean {
-  const shoeSpend = products
-    .filter((product) => isSeparateShoe(plan, product))
-    .reduce((sum, product) => sum + asNumber(product.price), 0);
-  return (
-    outfitSpend(plan, products) <= plan.outfit &&
-    (plan.shoes === null || shoeSpend <= plan.shoes)
-  );
-}
-
-function groupByCategory(products: Product[]): Record<ProductCategory, Product[]> {
-  const groups: Record<ProductCategory, Product[]> = {
-    top: [],
-    bottom: [],
-    shoes: [],
-    outerwear: [],
-    accessory: [],
-  };
-  for (const product of products) {
-    if (groups[product.category]) {
-      groups[product.category].push(product);
-    }
-  }
-  return groups;
-}
-
-/** Takes up to `count` items in rank order, rotating through brands so one store can't fill the list. */
-function spreadAcrossBrands(ranked: Product[], count: number): Product[] {
-  const byBrand = new Map<string, Product[]>();
-  for (const product of ranked) {
-    const key = product.brand_id ?? product.brand;
-    byBrand.set(key, [...(byBrand.get(key) ?? []), product]);
-  }
-  const queues = [...byBrand.values()];
-  const picked: Product[] = [];
-  while (picked.length < count && queues.some((queue) => queue.length)) {
-    for (const queue of queues) {
-      const next = queue.shift();
-      if (next && picked.length < count) picked.push(next);
-    }
-  }
-  return picked;
-}
-
-function filterCandidates(
-  products: Product[],
-  style: string,
-  occasion: string,
-  budget: BudgetPlan,
-  excludeIds: Set<string>,
-  skinTone: SkinTonePreference | null,
-): Product[] {
-  const styleTags = styleAliasTags(style);
-
-  const classy = isClassyLook(style, occasion);
-  const affordable = products.filter(
-    (product) =>
-      !excludeIds.has(product.id) &&
-      asNumber(product.price) <= priceCap(budget, product) &&
-      (!isDressFootwear(product) || classy),
-  );
-  const scores = new Map(
-    affordable.map((product) => [
-      product.id,
-      relevanceScore(product, styleTags, occasion) + skinToneColorScore(product, skinTone),
-    ]),
-  );
-  const MIN_STYLE_SCORE = 2;
-  const tagged = affordable.filter((product) =>
-    product.style_tags.some((tag) => styleTags.includes(normalizeTag(tag))),
-  );
-  // Live rows rarely have style_tags; keep items that read like the vibe when a
-  // category has matches, so Streetwear and Old Money are not the same pool.
-  const pool = affordable.filter((product) => {
-    if (product.source === 'demo') {
-      return product.style_tags.some((tag) => styleTags.includes(normalizeTag(tag)));
-    }
-    return true;
+function previousOutfitForPrompt(
+  previousOutfit: PreviousOutfitItem[],
+  catalog: Product[],
+) {
+  if (!previousOutfit.length) return [];
+  const matched = matchPreviousInCatalog(catalog, previousOutfit);
+  const byId = new Map(matched.map((product) => [product.id, product]));
+  const byIdentity = new Map(matched.map((product) => [productIdentityKey(product), product]));
+  return previousOutfit.map((item) => {
+    const product = byId.get(item.product_id) ?? byIdentity.get(productIdentityKey(item));
+    return {
+      product_id: item.product_id,
+      name: product?.name ?? item.name ?? null,
+      brand: product?.brand ?? item.brand ?? null,
+      category: product?.category ?? item.category ?? null,
+      color: product?.color ?? item.color ?? null,
+      ...(product?.visual_attributes ? { visual: visualForPrompt(product.visual_attributes) } : {}),
+    };
   });
-  const grouped = groupByCategory(pool.length ? pool : affordable);
-  const trimmed: Product[] = [];
-
-  for (const category of [...REQUIRED_CATEGORIES, ...OPTIONAL_CATEGORIES]) {
-    const ranked = [...grouped[category]].sort(
-      (a, b) =>
-        (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0) ||
-        asNumber(a.price) - asNumber(b.price),
-    );
-    const stylish = ranked.filter(
-      (product) =>
-        (scores.get(product.id) ?? 0) >= MIN_STYLE_SCORE ||
-        tagged.some((row) => row.id === product.id),
-    );
-    const focused = stylish.length ? stylish : ranked;
-    const best = spreadAcrossBrands(focused, TOP_PICKS_PER_CATEGORY);
-    const chosen = new Set(best.map((product) => product.id));
-    const cheapest = ranked
-      .filter((product) => !chosen.has(product.id))
-      .sort((a, b) => asNumber(a.price) - asNumber(b.price))
-      .slice(0, CHEAP_PICKS_PER_CATEGORY);
-    trimmed.push(...best, ...cheapest);
-  }
-
-  return trimmed;
 }
 
 function candidatesForPrompt(products: Product[]) {
-  return products.map((product) => ({
-    id: product.id,
-    name: product.name,
-    brand: product.brand,
-    category: product.category,
-    gender: inferProductGender(product),
-    ...(product.subcategory ? { subcategory: product.subcategory } : {}),
-    price: asNumber(product.price),
-    colors: product.colors.length ? product.colors.slice(0, 4) : [product.color],
-    ...(product.material ? { material: product.material.slice(0, 80) } : {}),
-    ...(product.fit ? { fit: product.fit } : {}),
-    ...(product.silhouette ? { silhouette: product.silhouette } : {}),
-    ...(product.pattern ? { pattern: product.pattern } : {}),
-    ...(product.formality ? { formality: product.formality } : {}),
-    ...(product.description ? { description: product.description.slice(0, 160) } : {}),
-    ...(product.style_tags.length ? { style_tags: product.style_tags } : {}),
-    ...(product.aesthetic_tags.length ? { aesthetic_tags: product.aesthetic_tags } : {}),
-    ...(product.occasion_tags.length ? { occasion_tags: product.occasion_tags } : {}),
-    ...(product.season_tags.length ? { season_tags: product.season_tags } : {}),
-  }));
+  return products.map((product) => {
+    const visual = visualForPrompt(product.visual_attributes);
+    return {
+      id: product.id,
+      name: product.name,
+      brand: product.brand,
+      category: product.category,
+      gender: inferProductGender(product),
+      ...(product.subcategory ? { subcategory: product.subcategory } : {}),
+      price: asNumber(product.price),
+      colors: product.colors.length ? product.colors.slice(0, 4) : [product.color],
+      ...(product.material ? { material: product.material.slice(0, 80) } : {}),
+      ...(product.fit ? { fit: product.fit } : {}),
+      ...(product.silhouette ? { silhouette: product.silhouette } : {}),
+      ...(product.pattern ? { pattern: product.pattern } : {}),
+      ...(product.formality ? { formality: product.formality } : {}),
+      ...(product.description ? { description: product.description.slice(0, 160) } : {}),
+      ...(product.style_tags.length ? { style_tags: product.style_tags } : {}),
+      ...(product.aesthetic_tags.length ? { aesthetic_tags: product.aesthetic_tags } : {}),
+      ...(product.occasion_tags.length ? { occasion_tags: product.occasion_tags } : {}),
+      ...(product.season_tags.length ? { season_tags: product.season_tags } : {}),
+      ...(visual ? { visual } : {}),
+    };
+  });
 }
 
 function vibeSeed(style: string, occasion: string): number {
@@ -316,13 +273,73 @@ function vibeSeed(style: string, occasion: string): number {
   return hash;
 }
 
-const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
-const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash';
 
-function geminiModels(): string[] {
-  const primary = Deno.env.get('GEMINI_MODEL') || DEFAULT_GEMINI_MODEL;
-  const fallback = Deno.env.get('GEMINI_FALLBACK_MODEL') || FALLBACK_GEMINI_MODEL;
-  return [...new Set([primary, fallback])];
+function stylistSystemPrompt(params: {
+  shopFor: string;
+  includeShoes: boolean;
+  complexion: boolean;
+  rebuild: boolean;
+}): string {
+  const slots = params.includeShoes
+    ? `- Each candidate must include exactly one top, one bottom, and one shoes item.`
+    : `- Each candidate must include exactly one top and one bottom.
+- Footwear was intentionally excluded. Never include shoes, sneakers, boots, sandals, heels, loafers, or any footwear. Set shoes_id to null. A candidate with footwear is invalid.`;
+  const shoesBudget = params.includeShoes
+    ? `- If shoe_budget is null, keep the total of all selected candidate prices <= budget.
+- If shoe_budget is a number, shoes are budgeted separately: the shoes item must cost <= shoe_budget, and all other selected items together must cost <= budget.
+- Dress shoes (loafers, oxfords, Marc Nolan) are only in the list for date, work, event, night out, or classy vibes. Do not force them into street or school fits.`
+    : `- Keep the total of all selected candidate prices <= budget.`;
+  const complexion = params.complexion
+    ? `- Color preference is complexion-first: use the user's complexion as one guide for clothing colors, especially on tops and outerwear. Bottoms and shoes matter less. Do not let complexion override style, occasion, gender, or budget. Do not invent colors.`
+    : `- Color preference is style-first: let the requested style and occasion drive color. Do not force complexion matching.`;
+  const shoesJson = params.includeShoes ? '"shoes_id": string,' : '"shoes_id": null,';
+
+  return `You are Styli, a professional personal stylist selecting a complete look from real inventory.
+You are not filling category slots. You are building outfits a person would actually want to wear and buy.
+
+Objective: from the provided products only, compose the strongest complete outfits for this user.
+
+The candidates are real products retrieved from the user's chosen stores.
+Return product_id values from that list only.
+Never invent products, IDs, names, prices, images, brands, links, or product attributes.
+Return ONLY valid JSON with this shape:
+{
+  "outfit_name": string,
+  "styling_tip": string,
+  "candidates": [
+    {
+      "top_id": string,
+      "bottom_id": string,
+      ${shoesJson}
+      "outerwear_id": string | null,
+      "accessory_id": string | null,
+      "reason": string
+    }
+  ]
+}
+Rules:
+- Return up to 5 candidates. Return fewer if the catalog cannot support more looks you would actually recommend. Do not pad with weak combinations.
+${slots}
+- Optionally include one outerwear and/or one accessory ONLY if it improves the outfit and stays within budget. Skip extras that do not earn their place.
+- Every id must come from the candidate list. Do not reuse the same product twice in one candidate.
+- Shop for ${params.shopFor}. Never pick women's-coded pieces (skirts, dresses, heels, baby tees, crop tops, Mary Janes, blouses) when shopping for men. Never pick men's-only pieces when shopping for women.
+- Do not select an item merely because it matches a keyword or style tag.
+- Do not force a weak product into an outfit to fill a category if a stronger relationship exists among other pieces.
+- Prefer products that create a clear relationship with the other selected pieces: silhouette, color, visual weight, and occasion.
+- Each outfit needs a main piece and supporting pieces. Avoid random combinations of individually fine items.
+- Prefer realistic wearability and purchase-worthiness over novelty.
+- Use the requested style as an aesthetic direction, not a keyword filter. Streetwear has multiple valid compositions — do not default to oversized + dark unless that is the strongest available look.
+- Respect budget, gender, occasion, and brand constraints.
+${complexion}
+- Explore meaningful variation when the catalog allows: different colors, silhouettes, or layering. Do not invent variety the catalog cannot support.
+${CANDIDATE_INTERPRETATION_GUIDE}
+${params.rebuild ? `- PREVIOUS OUTFIT is provided. ${REBUILD_OUTFIT_INSTRUCTION}` : ''}
+${shoesBudget}
+- Do not include duplicate categories.
+- If body measurements are provided, favor cuts and silhouettes that flatter them.
+- When a candidate includes a visual object, treat those attributes as observed. Do not invent colors, fits, patterns, or silhouettes that conflict with them.
+- If inspiration links are provided, use them only as style direction; you cannot open them.
+- Candidates are already limited to the user's brands and fit preference; judge them as a complete outfit, not as isolated products.`;
 }
 
 async function callGemini(params: {
@@ -331,15 +348,18 @@ async function callGemini(params: {
   budget: BudgetPlan;
   candidates: ReturnType<typeof candidatesForPrompt>;
   excludeIds: string[];
+  previousOutfit: ReturnType<typeof previousOutfitForPrompt>;
   attempt: number;
   stricter: boolean;
   context: StylingContext;
   gender: GenderPreference;
   skinTone: SkinTonePreference | null;
+  footwearPreference: FootwearPreference;
+  colorPreference: ColorPreference;
 }): Promise<AiOutfit[]> {
   const apiKey = Deno.env.get('GEMINI_API_KEY');
   if (!apiKey) {
-    throw new Error('ai_missing');
+    throw new GeminiGenerationError('request', 'MISSING_API_KEY', { message: 'ai_missing' });
   }
 
   const shopFor =
@@ -349,108 +369,86 @@ async function callGemini(params: {
         ? 'women'
         : 'any gender';
 
-  const system = `You are Styli, an expert fashion stylist.
-The candidates are real products retrieved from the user's chosen stores.
-Your job is only to choose and rank among them: propose up to 5 complete outfits ONLY from the provided candidate products.
-Return product_id values from that list only.
-Never invent products, IDs, names, prices, images, brands, or links.
-Return ONLY valid JSON with this shape:
-{
-  "outfit_name": string,
-  "styling_tip": string,
-  "candidates": [
-    {
-      "top_id": string,
-      "bottom_id": string,
-      "shoes_id": string,
-      "outerwear_id": string | null,
-      "accessory_id": string | null,
-      "reason": string
-    }
-  ]
-}
-Rules:
-- Return up to 5 candidates. Fewer is fine if the catalog cannot support more valid looks.
-- Each candidate must include exactly one top, one bottom, and one shoes item.
-- Optionally include one outerwear and/or one accessory ONLY if that candidate still stays within budget.
-- Every id must come from the candidate list. Do not reuse the same product twice in one candidate.
-- Shop for ${shopFor}. Never pick women's-coded pieces (skirts, dresses, heels, baby tees, crop tops, Mary Janes, blouses) when shopping for men. Never pick men's-only pieces when shopping for women.
-- Strongly match the requested vibe. A Streetwear fit must not look like Old Money or Y2K.
-- Prefer cohesive color/style for the requested vibe and occasion.
-- Explore meaningful variation when the catalog allows: different colors, silhouettes, layering, or footwear. Do not invent variety the catalog cannot support, and never break the user's style, occasion, budget, gender, or brand constraints for diversity.
-- If exclude_product_ids is non-empty, build different fits — do not reuse those products.
-- If shoe_budget is null, keep the total of all selected candidate prices <= budget.
-- If shoe_budget is a number, shoes are budgeted separately: the shoes item must cost <= shoe_budget, and all other selected items together must cost <= budget.
-- Do not include duplicate categories.
-- If body measurements are provided, favor cuts and silhouettes that flatter them.
-- If skin_tone is set, prefer candidate colors that flatter that complexion. Do not invent colors or products.
-- Dress shoes (loafers, oxfords, Marc Nolan) are only in the list for date, work, event, night out, or classy vibes. Do not force them into street or school fits.
-- If inspiration links are provided, use them only as style direction; you cannot open them.
-- Candidates are already limited to the user's brands and fit preference; judge them on style, color and occasion.`;
+  const includeShoes = params.footwearPreference !== 'none';
+  const system = stylistSystemPrompt({
+    shopFor,
+    includeShoes,
+    complexion: params.colorPreference === 'complexion',
+    rebuild: params.previousOutfit.length > 0,
+  });
 
   const user = {
     style: params.style,
     occasion: params.occasion,
     shop_for: shopFor,
     skin_tone: params.skinTone,
+    color_preference: params.colorPreference,
     budget: params.budget.outfit,
-    shoe_budget: params.budget.shoes,
+    shoe_budget: includeShoes ? params.budget.shoes : null,
+    footwear_preference: params.footwearPreference,
     exclude_product_ids: params.excludeIds,
+    previous_outfit_product_ids: params.previousOutfit.map((item) => item.product_id),
+    previous_outfit: params.previousOutfit,
     attempt: params.attempt,
     stricter: params.stricter,
     instruction: params.stricter
       ? 'Previous attempt exceeded budget or was invalid. Propose up to 5 cheaper compatible outfits and omit optional items if needed.'
-      : params.excludeIds.length
-        ? 'Propose up to 5 different outfits than the excluded products, still matching the vibe.'
-        : 'Propose up to 5 complete outfits within budget for this vibe. Vary them when the catalog allows.',
+      : params.previousOutfit.length
+        ? REBUILD_OUTFIT_INSTRUCTION
+        : 'Build the strongest complete outfits from these actual products. Do not fill slots with weak pieces.',
     measurements: params.context.measurements,
     inspiration: params.context.inspiration,
     candidates: params.candidates,
   };
 
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: system }] },
-    contents: [{ role: 'user', parts: [{ text: JSON.stringify(user) }] }],
-    generationConfig: {
-      temperature: params.stricter ? 0.2 : params.excludeIds.length ? 0.95 : 0.75,
-      responseMimeType: 'application/json',
-    },
-  });
+  const temperature = params.stricter ? 0.2 : params.previousOutfit.length ? 0.85 : 0.75;
+  let http;
+  try {
+    http = await generateGeminiContent({
+      apiKey,
+      models: geminiModelsFromEnv(Deno.env),
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: JSON.stringify(user) }] }],
+      generationConfig: geminiJsonGenerationConfig(temperature),
+    });
+  } catch {
+    throw new GeminiGenerationError('request', 'NETWORK', {
+      message: 'ai',
+    });
+  }
 
-  let response: Response | null = null;
-  for (const model of geminiModels()) {
-    response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+  if (!http.ok) {
+    throw new GeminiGenerationError('request', http.error_type, {
+      message: 'ai',
+      status_code: http.status,
+    });
+  }
+
+  const extracted = inspectGeminiPayload(http.payload);
+  if (!extracted.text.trim()) {
+    throw new GeminiGenerationError(
+      'response',
+      extracted.blockReason
+        ? `BLOCKED_${extracted.blockReason}`
+        : extracted.finishReason
+          ? `EMPTY_TEXT_${extracted.finishReason}`
+          : 'EMPTY_TEXT',
       {
-        method: 'POST',
-        headers: {
-          'x-goog-api-key': apiKey,
-          'Content-Type': 'application/json',
-        },
-        body,
+        message: 'invalid_ai',
+        finish_reason: extracted.finishReason ?? extracted.blockReason ?? undefined,
+        candidate_count: extracted.candidateCount,
       },
     );
-    // Overloaded, rate-limited, or retired models fall through to the next one.
-    if (![404, 429, 500, 503].includes(response.status)) break;
-    await response.body?.cancel();
   }
 
-  if (!response?.ok) {
-    throw new Error('ai');
+  const parsed = tryParseGeminiOutfitCandidates(extracted.text, { requireShoes: includeShoes });
+  if (!parsed.ok) {
+    throw new GeminiGenerationError(parsed.stage, parsed.error_type, {
+      message: 'invalid_ai',
+      candidate_count: parsed.candidate_count,
+    });
   }
-
-  const payload = await response.json();
-  const parts: Array<{ text?: unknown; thought?: unknown }> =
-    payload?.candidates?.[0]?.content?.parts ?? [];
-  const content = parts
-    .filter((part) => !part.thought && typeof part.text === 'string')
-    .map((part) => part.text as string)
-    .join('');
-  if (!content.trim()) {
-    throw new Error('invalid_ai');
-  }
-
-  return parseGeminiOutfitCandidates(content);
+  return parsed.outfits;
 }
 
 /**
@@ -465,10 +463,14 @@ function heuristicOutfit(
   excludeIds: Set<string>,
   attempt: number,
   skinTone: SkinTonePreference | null,
+  footwearPreference: FootwearPreference = 'include',
+  colorPreference: ColorPreference = 'style_first',
+  previousOutfit: PreviousOutfitItem[] = [],
 ): AiOutfit {
   const styleTags = styleAliasTags(style);
   const scoreOf = (product: Product) =>
-    relevanceScore(product, styleTags, occasion) + skinToneColorScore(product, skinTone);
+    relevanceScore(product, styleTags, occasion) +
+    skinToneColorScore(product, skinTone, colorPreference);
   const grouped = groupByCategory(candidates);
 
   const rank = (list: Product[]) =>
@@ -478,12 +480,13 @@ function heuristicOutfit(
 
   const tops = rank(grouped.top).slice(0, 10);
   const bottoms = rank(grouped.bottom).slice(0, 10);
-  const shoes = rank(grouped.shoes).slice(0, 10);
+  const includeShoes = footwearPreference !== 'none';
+  const shoes = includeShoes ? rank(grouped.shoes).slice(0, 10) : [];
 
   type Combo = {
     top: Product;
     bottom: Product;
-    shoes: Product;
+    shoes: Product | null;
     total: number;
     styleScore: number;
     overlap: number;
@@ -491,16 +494,34 @@ function heuristicOutfit(
   const combos: Combo[] = [];
   for (const top of tops) {
     for (const bottom of bottoms) {
+      if (!includeShoes) {
+        if (fitsBudget(budget, [top, bottom])) {
+          const pieces = [top, bottom];
+          combos.push({
+            top,
+            bottom,
+            shoes: null,
+            total: asNumber(top.price) + asNumber(bottom.price),
+            styleScore: scoreOf(top) + scoreOf(bottom),
+            overlap:
+              pieces.filter((product) => reusePenalty(product, previousOutfit) >= IDENTITY_REUSE_PENALTY).length +
+              pieces.filter((product) => excludeIds.has(product.id)).length,
+          });
+        }
+        continue;
+      }
       for (const shoe of shoes) {
         if (fitsBudget(budget, [top, bottom, shoe])) {
-          const ids = [top.id, bottom.id, shoe.id];
+          const pieces = [top, bottom, shoe];
           combos.push({
             top,
             bottom,
             shoes: shoe,
             total: asNumber(top.price) + asNumber(bottom.price) + asNumber(shoe.price),
             styleScore: scoreOf(top) + scoreOf(bottom) + scoreOf(shoe),
-            overlap: ids.filter((id) => excludeIds.has(id)).length,
+            overlap:
+              pieces.filter((product) => reusePenalty(product, previousOutfit) >= IDENTITY_REUSE_PENALTY).length +
+              pieces.filter((product) => excludeIds.has(product.id)).length,
           });
         }
       }
@@ -511,23 +532,33 @@ function heuristicOutfit(
     throw new Error('no_products');
   }
 
-  combos.sort((a, b) => {
-    if (a.overlap !== b.overlap) return a.overlap - b.overlap;
-    if (b.styleScore !== a.styleScore) return b.styleScore - a.styleScore;
-    return a.total - b.total;
-  });
-
   const fresh = combos.filter((combo) => {
-    const ids = [combo.top.id, combo.bottom.id, combo.shoes.id];
+    const ids = [combo.top.id, combo.bottom.id, combo.shoes?.id].filter(
+      (id): id is string => Boolean(id),
+    );
     return !(excludeIds.size && ids.every((id) => excludeIds.has(id)));
   });
   const ranked = fresh.length ? fresh : combos;
-  const minOverlap = ranked[0].overlap;
-  const bestScore = ranked[0].styleScore;
-  const band = ranked.filter(
-    (combo) => combo.overlap === minOverlap && combo.styleScore >= bestScore - 1,
-  );
-  const chosen = band[(vibeSeed(style, occasion) + attempt) % band.length];
+  const bestScore = Math.max(...ranked.map((combo) => combo.styleScore));
+  const qualityFloor = previousOutfit.length ? bestScore - SHORTLIST_QUALITY_BAND : bestScore - 1;
+  const qualityBand = ranked.filter((combo) => combo.styleScore >= qualityFloor);
+  const pickFromBand = qualityBand.length ? qualityBand : ranked;
+  const chosen = previousOutfit.length
+    ? [...pickFromBand].sort((a, b) => {
+        const piecesOf = (combo: typeof a) =>
+          [combo.top, combo.bottom, ...(combo.shoes ? [combo.shoes] : [])];
+        const diversityDelta =
+          outfitDiversityScore(piecesOf(b), previousOutfit, footwearPreference) -
+          outfitDiversityScore(piecesOf(a), previousOutfit, footwearPreference);
+        if (diversityDelta !== 0) return diversityDelta;
+        if (b.styleScore !== a.styleScore) return b.styleScore - a.styleScore;
+        return a.total - b.total;
+      })[0]
+    : (() => {
+        const minOverlap = Math.min(...pickFromBand.map((combo) => combo.overlap));
+        const band = pickFromBand.filter((combo) => combo.overlap === minOverlap);
+        return band[(vibeSeed(style, occasion) + attempt) % band.length];
+      })();
 
   const items: AiItem[] = [
     {
@@ -538,18 +569,22 @@ function heuristicOutfit(
       product_id: chosen.bottom.id,
       reason: `Balances the fit for a ${occasion.toLowerCase()} look.`,
     },
-    {
+  ];
+  if (chosen.shoes) {
+    items.push({
       product_id: chosen.shoes.id,
       reason: `Grounds the outfit without breaking the budget.`,
-    },
-  ];
+    });
+  }
 
   let remaining =
-    budget.outfit - outfitSpend(budget, [chosen.top, chosen.bottom, chosen.shoes]);
+    budget.outfit - outfitSpend(budget, [chosen.top, chosen.bottom, ...(chosen.shoes ? [chosen.shoes] : [])]);
   for (const category of OPTIONAL_CATEGORIES) {
     const optional = rank(grouped[category]).find(
       (product) =>
-        !excludeIds.has(product.id) && asNumber(product.price) <= remaining,
+        !excludeIds.has(product.id) &&
+        asNumber(product.price) <= remaining &&
+        (footwearPreference !== 'none' || !isFootwearProduct(product)),
     );
     if (optional) {
       remaining -= asNumber(optional.price);
@@ -567,8 +602,20 @@ function heuristicOutfit(
   };
 }
 
-function canBuildCoreOutfit(candidates: Product[], budget: BudgetPlan): boolean {
+function canBuildCoreOutfit(
+  candidates: Product[],
+  budget: BudgetPlan,
+  footwearPreference: FootwearPreference = 'include',
+): boolean {
   const grouped = groupByCategory(candidates);
+  if (footwearPreference === 'none') {
+    for (const top of grouped.top) {
+      for (const bottom of grouped.bottom) {
+        if (fitsBudget(budget, [top, bottom])) return true;
+      }
+    }
+    return false;
+  }
   for (const top of grouped.top) {
     for (const bottom of grouped.bottom) {
       for (const shoe of grouped.shoes) {
@@ -583,6 +630,7 @@ function validateAndBuild(
   ai: AiOutfit,
   candidateMap: Map<string, Product>,
   budget: BudgetPlan,
+  footwearPreference: FootwearPreference = 'include',
 ) {
   const selected: Array<{ product: Product; reason: string }> = [];
   const seenCategories = new Set<ProductCategory>();
@@ -599,20 +647,11 @@ function validateAndBuild(
     selected.push({ product, reason: item.reason || 'Selected for this fit.' });
   }
 
-  for (const required of REQUIRED_CATEGORIES) {
-    if (!seenCategories.has(required)) {
-      throw new Error('invalid_ai');
-    }
-  }
-
-  for (const category of seenCategories) {
-    if (
-      !REQUIRED_CATEGORIES.includes(category) &&
-      !OPTIONAL_CATEGORIES.includes(category)
-    ) {
-      throw new Error('invalid_ai');
-    }
-  }
+  assertValidOutfitCategories(seenCategories, footwearPreference);
+  assertNoForbiddenFootwear(
+    selected.map((entry) => entry.product),
+    footwearPreference,
+  );
 
   const total = selected.reduce(
     (sum, entry) => sum + asNumber(entry.product.price),
@@ -636,7 +675,19 @@ async function handler(req: Request): Promise<Response> {
     return friendlyError('unknown', 405);
   }
 
+  const requestStarted = perfNow();
+  resetPerfLog();
+  const traceId = createGenerationTraceId();
+  console.log(`[GEN_TRACE] id=${traceId}`);
+  const finish = (response: Response): Response => {
+    logSkippedPerfStages();
+    logPerfTotal(perfNow() - requestStarted);
+    return response;
+  };
+
   try {
+    const stylingStarted = perfNow();
+    genLog('GEN_STAGE', traceId, { stage: 'request' });
     const body = (await req.json()) as GenerateRequest;
     const style = typeof body.style === 'string' ? body.style.trim() : '';
     const occasion = typeof body.occasion === 'string' ? body.occasion.trim() : '';
@@ -645,9 +696,14 @@ async function handler(req: Request): Promise<Response> {
       body.shoe_budget === null || body.shoe_budget === undefined
         ? null
         : asNumber(body.shoe_budget);
-    const excludeIds = new Set(
-      (body.exclude_product_ids ?? []).filter((id) => typeof id === 'string'),
+    const previousOutfit = parsePreviousOutfit(
+      Array.isArray(body.previous_outfit) && body.previous_outfit.length
+        ? body.previous_outfit
+        : (body.previous_outfit_product_ids?.length
+          ? body.previous_outfit_product_ids
+          : body.exclude_product_ids),
     );
+    const excludeIds = new Set<string>();
 
     if (
       !style ||
@@ -656,7 +712,8 @@ async function handler(req: Request): Promise<Response> {
       outfitBudget <= 0 ||
       (shoeBudget !== null && (!Number.isFinite(shoeBudget) || shoeBudget <= 0))
     ) {
-      return friendlyError('invalid_ai', 400);
+      logPerf('styling_context', perfNow() - stylingStarted);
+      return finish(friendlyError('invalid_ai', 400));
     }
     const budget: BudgetPlan = { outfit: outfitBudget, shoes: shoeBudget };
 
@@ -667,7 +724,8 @@ async function handler(req: Request): Promise<Response> {
       Deno.env.get('EXPO_PUBLIC_SUPABASE_ANON_KEY');
 
     if (!supabaseUrl || !serviceKey) {
-      return friendlyError('network', 500);
+      logPerf('styling_context', perfNow() - stylingStarted);
+      return finish(friendlyError('network', 500));
     }
 
     // Local PostgREST proxy expects /rest/v1 — createClient already adds that.
@@ -679,27 +737,41 @@ async function handler(req: Request): Promise<Response> {
     const gender: GenderPreference =
       body.gender === 'men' || body.gender === 'women' ? body.gender : 'any';
     const skinTone = parseSkinTone(body.skin_tone);
+    const footwearPreference = parseFootwearPreference(body.footwear_preference);
+    const colorPreference = parseColorPreference(body.color_preference);
+    const requiredCategories = requiredOutfitCategories(footwearPreference);
     const selectingBrands = context.preferredBrands.length > 0;
     const localFn = Number.isFinite(Number(Deno.env.get('EDGE_FUNCTION_PORT') ?? ''));
+    if (footwearPreference === 'none') {
+      budget.shoes = null;
+    }
+    logPerf('styling_context', perfNow() - stylingStarted);
+    genLog('GEN_STAGE', traceId, {
+      stage: 'styling_context',
+      footwear: footwearPreference,
+      rebuild: previousOutfit.length > 0,
+    });
+
+    const logChannel3 = (live: LiveRetrieval, source: string) => {
+      const categories = live.categories;
+      genLog('GEN_CHANNEL3', traceId, {
+        used: live.ok,
+        reason: live.reason ?? 'unknown_error',
+        source,
+        fetched: live.fetched,
+        usable: live.usable,
+        top: categories.top,
+        bottom: categories.bottom,
+        shoes: footwearPreference === 'none' ? 0 : categories.shoes,
+        timed_out: live.timedOut,
+      });
+      if (live.attempted && live.ok) logMetadataPreservation(traceId, live.metadata);
+    };
 
     const fetchLiveCatalogOnce = async (): Promise<LiveRetrieval> => {
       const apiKey = readChannel3ApiKey({ get: (name) => Deno.env.get(name) });
       if (!apiKey) {
-        console.log(
-          `[CHANNEL3_LIVE] starting retrieval ${JSON.stringify({ has_api_key: false })}`,
-        );
-        console.log(
-          `[CHANNEL3_LIVE] retrieval complete ${JSON.stringify({
-            used: false,
-            attempted: false,
-            reason: 'missing_api_key',
-            has_api_key: false,
-            query_count: 0,
-            fetched: 0,
-            usable: 0,
-          })}`,
-        );
-        return emptyLiveRetrieval('missing_api_key');
+        return emptyLiveRetrieval('no_api_key');
       }
       try {
         return await retrieveLiveChannel3Catalog({
@@ -710,25 +782,32 @@ async function handler(req: Request): Promise<Response> {
           budget: budget.outfit,
           shoeBudget: budget.shoes,
           brands: context.preferredBrands,
+          categories: liveRetrievalCategories(footwearPreference),
         });
       } catch (err) {
-        console.log(
-          `[CHANNEL3_LIVE] ${JSON.stringify({
-            used: false,
-            reason: err instanceof Error ? err.message.slice(0, 80) : 'error',
-          })}`,
+        return liveRetrievalFromError(
+          err instanceof Error && err.message === 'timeout' ? 'request_timeout' : 'request_error',
         );
-        return { ...emptyLiveRetrieval('error'), attempted: true, reason: 'error' };
       }
     };
     const retrieveLiveOnce = (() => {
       let cached: Promise<LiveRetrieval> | null = null;
       return () => {
-        if (!cached) cached = fetchLiveCatalogOnce();
+        if (!cached) {
+          cached = (async () => {
+            const started = perfNow();
+            try {
+              return await fetchLiveCatalogOnce();
+            } finally {
+              logPerf('channel3_retrieval', perfNow() - started);
+            }
+          })();
+        }
         return cached;
       };
     })();
 
+    let candidateFilteringMs = 0;
     const resolved = await resolveGenerationCatalog({
       retrieveLive: retrieveLiveOnce,
       loadStored: () =>
@@ -739,67 +818,156 @@ async function handler(req: Request): Promise<Response> {
           allowDemo: Deno.env.get('ALLOW_DEMO_CATALOG') === 'true' || localFn,
         }),
       isSufficient: (incoming) => {
-        const filtered = filterCandidates(incoming, style, occasion, budget, excludeIds, skinTone);
-        const groupedLive = groupByCategory(filtered);
-        return (
-          !REQUIRED_CATEGORIES.some((required) => groupedLive[required].length === 0) &&
-          canBuildCoreOutfit(filtered, budget)
-        );
+        const started = perfNow();
+        try {
+          const filtered = shortlistForGemini({
+            products: incoming,
+            style,
+            occasion,
+            budget,
+            excludeIds,
+            skinTone,
+            footwearPreference,
+            colorPreference,
+            previousOutfit,
+          });
+          const groupedLive = groupByCategory(filtered);
+          return (
+            !requiredCategories.some((required) => groupedLive[required].length === 0) &&
+            canBuildCoreOutfit(filtered, budget, footwearPreference)
+          );
+        } finally {
+          candidateFilteringMs += perfNow() - started;
+        }
       },
+      required: requiredCategories,
+      excludeCategories: footwearPreference === 'none' ? ['shoes'] : [],
     });
 
+    if (resolved.live) logChannel3(resolved.live, resolved.retrievalSource);
+    else genLog('GEN_CHANNEL3', traceId, { used: false, reason: 'no_api_key', source: resolved.retrievalSource });
+
     if (!resolved.products.length) {
-      if (resolved.fallbackReason === 'network') return friendlyError('network', 500);
+      if (resolved.fallbackReason === 'network') return finish(friendlyError('network', 500));
       if (resolved.fallbackReason === 'brands_unavailable' || resolved.fallbackReason === 'catalog_empty') {
-        return friendlyError(resolved.fallbackReason, 404, {
+        return finish(friendlyError(resolved.fallbackReason, 404, {
           unavailable_brands: resolved.unavailableBrands,
-        });
+        }));
       }
     }
 
     const products = resolved.products;
     const brandsNoFit = (candidatePool: Product[]) => {
       const regrouped = groupByCategory(candidatePool);
-      return friendlyError(selectingBrands ? 'brands_no_fit' : 'no_products', 404, {
-        missing_categories: REQUIRED_CATEGORIES.filter((c) => regrouped[c].length === 0),
+      return finish(friendlyError(selectingBrands ? 'brands_no_fit' : 'no_products', 404, {
+        missing_categories: requiredCategories.filter((c) => regrouped[c].length === 0),
         unavailable_brands: resolved.unavailableBrands,
-      });
+      }));
     };
 
-    const candidates = filterCandidates(
+    const before = groupByCategory(products);
+    const filterStarted = perfNow();
+    const rankedResult = rankWorkingPoolDetailed({
       products,
       style,
       occasion,
       budget,
       excludeIds,
       skinTone,
+      footwearPreference,
+      colorPreference,
+      previousOutfit,
+    });
+    const rankedPool = rankedResult.products.filter(
+      (product) => footwearPreference !== 'none' || !isFootwearProduct(product),
     );
+    const afterRank = groupByCategory(rankedPool);
+    genLog('GEN_FILTER', traceId, {
+      before_top: before.top.length,
+      before_bottom: before.bottom.length,
+      before_shoes: footwearPreference === 'none' ? 0 : before.shoes.length,
+      after_top: afterRank.top.length,
+      after_bottom: afterRank.bottom.length,
+      after_shoes: footwearPreference === 'none' ? 0 : afterRank.shoes.length,
+    });
+    for (const drop of rankedResult.drops) {
+      genLog('GEN_FILTER_DROP', traceId, {
+        category: drop.category,
+        product_id: drop.product_id,
+        brand: drop.brand,
+        reason: drop.reason,
+        score: drop.score ?? 'none',
+      });
+    }
 
-    let workingCandidates = candidates;
+    if (
+      requiredCategories.some((required) => afterRank[required].length === 0) ||
+      !canBuildCoreOutfit(rankedPool, budget, footwearPreference)
+    ) {
+      candidateFilteringMs += perfNow() - filterStarted;
+      logPerf('candidate_filtering', candidateFilteringMs);
+      return brandsNoFit(rankedPool);
+    }
+
+    const visual = await enrichProductsWithVisualAttributes(rankedPool, {
+      footwearPreference,
+      onFailure: (failure) =>
+        genLog('GEN_VISUAL_ERROR', traceId, {
+          product_id: failure.product_id,
+          stage: failure.stage,
+          error_type: failure.error_type,
+          status_code: failure.status_code,
+          message: failure.message,
+        }),
+    });
+    genLog('GEN_VISUAL', traceId, { analyzed: visual.successful, failed: visual.failed });
+
+    const workingCandidates = shortlistForGemini({
+      products: visual.products,
+      style,
+      occasion,
+      budget,
+      excludeIds,
+      skinTone,
+      footwearPreference,
+      colorPreference,
+      previousOutfit,
+    }).filter((product) => footwearPreference !== 'none' || !isFootwearProduct(product));
+    candidateFilteringMs += perfNow() - filterStarted;
+    logPerf('candidate_filtering', candidateFilteringMs);
+
     const grouped = groupByCategory(workingCandidates);
-    const missingRequired = REQUIRED_CATEGORIES.some(
-      (required) => grouped[required].length === 0,
-    );
+    if (
+      requiredCategories.some((required) => grouped[required].length === 0) ||
+      !canBuildCoreOutfit(workingCandidates, budget, footwearPreference)
+    ) {
+      return brandsNoFit(workingCandidates);
+    }
 
-    if (missingRequired || !canBuildCoreOutfit(workingCandidates, budget)) {
-      if (excludeIds.size > 0) {
-        // Soft rebuild: prefer new pieces, but allow overlap if hard exclude can't fill a fit.
-        workingCandidates = filterCandidates(
-          products,
-          style,
-          occasion,
-          budget,
-          new Set(),
-          skinTone,
-        );
-      }
-      const regrouped = groupByCategory(workingCandidates);
-      if (
-        REQUIRED_CATEGORIES.some((required) => regrouped[required].length === 0) ||
-        !canBuildCoreOutfit(workingCandidates, budget)
-      ) {
-        return brandsNoFit(workingCandidates);
-      }
+    const poolBrands = new Set(workingCandidates.map((product) => product.brand).filter(Boolean));
+    genLog('GEN_GEMINI', traceId, {
+      products_sent: workingCandidates.length,
+      top_count: grouped.top.length,
+      bottom_count: grouped.bottom.length,
+      shoes_count: footwearPreference === 'none' ? 0 : grouped.shoes.length,
+      brands: poolBrands.size,
+    });
+    for (const snapshot of poolSnapshotRows(workingCandidates, style, occasion, previousOutfit)) {
+      logGeminiPool(
+        traceId,
+        snapshot.category,
+        snapshot.rows.map((row) => ({
+          product_id: row.product_id,
+          category: row.category,
+          brand: row.brand,
+          price: row.price,
+          relevance_score: row.relevance_score,
+          style_score: row.style_score,
+          occasion_score: row.occasion_score,
+          visual_confidence: row.visual_confidence,
+          shortlist_rank: row.shortlist_rank,
+        })),
+      );
     }
 
     const promptCandidates = candidatesForPrompt(workingCandidates);
@@ -819,11 +987,14 @@ async function handler(req: Request): Promise<Response> {
           budget,
           candidates: promptCandidates,
           excludeIds: excludedList,
+          previousOutfit: previousOutfitForPrompt(previousOutfit, workingCandidates),
           attempt,
           stricter,
           context,
           gender,
           skinTone,
+          footwearPreference,
+          colorPreference,
         };
         const heuristicArgs = [
           style,
@@ -833,39 +1004,105 @@ async function handler(req: Request): Promise<Response> {
           excludeIds,
           attempt - 1,
           skinTone,
+          footwearPreference,
+          colorPreference,
+          previousOutfit,
         ] as const;
         const productMap = new Map(
           workingCandidates.map((product) => [product.id, product]),
         );
+        const scoringContext = {
+          style,
+          occasion,
+          skinTone,
+          measurements: context.measurements,
+          footwearPreference,
+          colorPreference,
+        };
+        let validationMs = 0;
+        let scoringMs = 0;
         const evaluate = (outfits: AiOutfit[]) =>
           evaluateOutfitCandidates({
             outfits,
             excludeIds,
-            validate: (outfit) => validateAndBuild(outfit, productMap, budget),
+            validate: (outfit) => {
+              const started = perfNow();
+              try {
+                return validateAndBuild(outfit, productMap, budget, footwearPreference);
+              } finally {
+                validationMs += perfNow() - started;
+              }
+            },
             productsOf: (built) => built.selected.map(({ product }) => product),
-            score: (products) =>
-              scoreOutfit(products, {
-                style,
-                occasion,
-                skinTone,
-                measurements: context.measurements,
-              }),
+            score: (products) => {
+              const started = perfNow();
+              try {
+                return scoreOutfit(products, scoringContext);
+              } finally {
+                scoringMs += perfNow() - started;
+              }
+            },
+            previousOutfit,
+            footwearPreference,
           });
 
         let geminiOutfits: AiOutfit[] | null = null;
+        let geminiCallError: GeminiGenerationError | null = null;
         if (hasGemini) {
+          const generationStarted = perfNow();
           try {
             geminiOutfits = await callGemini(geminiArgs);
           } catch (err) {
+            geminiCallError =
+              err instanceof GeminiGenerationError
+                ? err
+                : new GeminiGenerationError('request', 'UNHANDLED', {
+                    message: err instanceof Error ? err.message : 'ai',
+                  });
+            genLog('GEN_GEMINI_ERROR', traceId, {
+              stage: geminiCallError.stage,
+              error_type: geminiCallError.error_type,
+              status_code: geminiCallError.status_code,
+              candidate_count: geminiCallError.candidate_count ?? 0,
+              finish_reason: geminiCallError.finish_reason,
+            });
             if (!allowHeuristic) throw err;
+          } finally {
+            logPerf('outfit_generation', perfNow() - generationStarted);
           }
         } else if (!allowHeuristic) {
           throw new Error('ai_missing');
+        } else {
+          logPerf('outfit_generation', 'SKIPPED');
         }
 
         let evaluated = geminiOutfits ? evaluate(geminiOutfits) : null;
+        genLog('GEN_GEMINI', traceId, {
+          generated: geminiOutfits?.length ?? 0,
+          candidates_generated: geminiOutfits?.length ?? 0,
+        });
         if (evaluated) {
           const valid = evaluated.candidates.filter((candidate) => candidate.valid);
+          genLog('GEN_VALIDATE', traceId, {
+            valid: valid.length,
+            invalid: evaluated.candidates.length - valid.length,
+          });
+          if (geminiOutfits?.length && valid.length === 0) {
+            genLog('GEN_GEMINI_ERROR', traceId, {
+              stage: 'candidate_validation',
+              error_type: 'all_candidates_invalid',
+              candidate_count: geminiOutfits.length,
+            });
+          }
+          logCandidateScores(
+            traceId,
+            evaluated.candidates.map((candidate) =>
+              candidate.valid
+                ? { index: candidate.index, valid: true, score: candidate.score }
+                : { index: candidate.index, valid: false },
+            ),
+            evaluated.winner?.index ?? null,
+          );
           logOutfitCandidates({
             count: evaluated.count,
             valid_count: valid.length,
@@ -875,11 +1112,46 @@ async function handler(req: Request): Promise<Response> {
               .filter((candidate) => !candidate.valid)
               .map((candidate) => candidate.reason),
           });
+          console.log(
+            `[OUTFIT_DIVERSITY] ${JSON.stringify({
+              rebuild: previousOutfit.length > 0,
+              unique_candidate_products: uniqueProductIds(geminiOutfits ?? []).size,
+              candidate_count: geminiOutfits?.length ?? 0,
+            })}`,
+          );
         }
 
+        let usedHeuristicFallback = false;
         if (!evaluated?.winner && allowHeuristic) {
-          evaluated = evaluate([heuristicOutfit(...heuristicArgs)]);
+          usedHeuristicFallback = true;
+          const reason = fallbackReasonForGemini({
+            geminiOutfits,
+            requestFailed: Boolean(geminiCallError && geminiCallError.stage === 'request'),
+          });
+          genLog('GEN_FALLBACK', traceId, {
+            reason,
+            mode: 'heuristic',
+            top_candidates: grouped.top.length,
+            bottom_candidates: grouped.bottom.length,
+            shoe_candidates: footwearPreference === 'none' ? 0 : grouped.shoes.length,
+          });
+          const fallbackOutfit = heuristicOutfit(...heuristicArgs);
+          const fallbackByCategory: Record<string, string> = {};
+          for (const item of fallbackOutfit.items) {
+            const product = productMap.get(item.product_id);
+            if (!product) continue;
+            fallbackByCategory[product.category] = product.id;
+          }
+          genLog('GEN_FALLBACK_SELECTION', traceId, {
+            top: fallbackByCategory.top ?? 'none',
+            bottom: fallbackByCategory.bottom ?? 'none',
+            shoes: fallbackByCategory.shoes ?? 'none',
+          });
+          evaluated = evaluate([fallbackOutfit]);
         }
+
+        logPerf('validation', validationMs);
+        logPerf('scoring', scoringMs);
 
         const winner = evaluated?.winner;
         if (!winner) {
@@ -898,21 +1170,36 @@ async function handler(req: Request): Promise<Response> {
 
         const fashionAI = createFashionAIProvider();
         const season = currentSeason();
-        const scoringContext = {
-          style,
-          occasion,
-          skinTone,
-          measurements: context.measurements,
-        };
         const criticInput = {
           style,
           occasion,
           skinTone,
           measurements: context.measurements,
           season,
+          footwearPreference,
+          colorPreference,
           products: criticProductsFromCatalog(selected.map(({ product }) => product)),
         };
-        const critic = await critiqueWinningOutfit(criticInput, fashionAI);
+        const criticStarted = perfNow();
+        const criticRaw = await critiqueWinningOutfit(criticInput, fashionAI);
+        genLog('GEN_CRITIC', traceId, {
+          ran: criticRaw.fashion_critic_available,
+          assessment: criticRaw.fashion_critic?.overall_assessment ?? 'none',
+        });
+        if (!criticRaw.fashion_critic_available && criticRaw.reason === 'no_images') {
+          logPerf('critic', 'SKIPPED');
+        } else {
+          logPerf('critic', perfNow() - criticStarted);
+        }
+        const critic = criticRaw.fashion_critic
+          ? {
+              ...criticRaw,
+              fashion_critic: sanitizeCriticForFootwear(
+                criticRaw.fashion_critic,
+                footwearPreference,
+              ),
+            }
+          : criticRaw;
 
         const placeholderCritic = {
           overall_assessment: 'acceptable' as const,
@@ -961,21 +1248,41 @@ async function handler(req: Request): Promise<Response> {
               skinTone,
               measurements: context.measurements,
               season,
+              footwearPreference,
+              colorPreference,
               currentOutfit: criticInput.products,
               critic: critic.fashion_critic ?? placeholderCritic,
               catalog: revisionCatalogFromProducts(workingCandidates),
             },
             provider: fashionAI,
-            validate: (outfit) => validateAndBuild(outfit, productMap, budget),
+            validate: (outfit) =>
+              validateAndBuild(outfit, productMap, budget, footwearPreference),
             productsOf: (built) => built.selected.map(({ product }) => product),
             score: (products) => scoreOutfit(products, scoringContext),
-            critique: (input) => critiqueWinningOutfit(input, fashionAI),
+            critique: async (input) => {
+              const started = perfNow();
+              try {
+                const run = await critiqueWinningOutfit(input, fashionAI);
+                if (!run.fashion_critic) return run;
+                return {
+                  ...run,
+                  fashion_critic: sanitizeCriticForFootwear(
+                    run.fashion_critic,
+                    footwearPreference,
+                  ),
+                };
+              } finally {
+                logPerf('critic', perfNow() - started);
+              }
+            },
             criticInputFor: (products) => ({
               style,
               occasion,
               skinTone,
               measurements: context.measurements,
               season,
+              footwearPreference,
+              colorPreference,
               products: criticProductsFromCatalog(products),
             }),
           });
@@ -989,6 +1296,10 @@ async function handler(req: Request): Promise<Response> {
         } catch {
           // Phase 3 must never fail generation.
         }
+        genLog('GEN_REVISION', traceId, {
+          attempted: revisionFields.fashion_revision_attempted,
+          accepted: revisionFields.fashion_revision_accepted,
+        });
 
         if (revisionFields.fashion_revision_accepted) {
           logOutfitScore({
@@ -1000,7 +1311,27 @@ async function handler(req: Request): Promise<Response> {
           });
         }
 
-        return jsonResponse({
+        const responseStarted = perfNow();
+        const criticFields = toFashionCriticFields(finalCritic);
+        const generationMode = generationModeForResponse(usedHeuristicFallback);
+        logFinalOutfit(
+          traceId,
+          {
+            source: resolved.retrievalSource,
+            items: finalSelected.length,
+            score: finalFashion.score,
+            revision_attempted: revisionFields.fashion_revision_attempted,
+            revision_accepted: revisionFields.fashion_revision_accepted,
+            generation_mode: generationMode,
+          },
+          finalSelected.map(({ product }) => ({
+            category: product.category,
+            product_id: product.id,
+            brand: product.brand,
+            price: asNumber(product.price),
+          })),
+        );
+        const response = jsonResponse({
           outfit_name: finalName,
           styling_tip: finalTip,
           style,
@@ -1010,9 +1341,16 @@ async function handler(req: Request): Promise<Response> {
           total_price: finalTotal,
           catalog_source: resolved.retrievalSource,
           channel3_retrieval_attempted: resolved.channel3Attempted,
+          generation_mode: generationMode,
+          footwear_preference: footwearPreference,
           unavailable_brands: resolved.unavailableBrands,
+          outfit_diversity_score: outfitDiversityScore(
+            finalSelected.map(({ product }) => product),
+            previousOutfit,
+            footwearPreference,
+          ),
           ...toFashionResponseFields(finalFashion),
-          ...toFashionCriticFields(finalCritic),
+          ...criticFields,
           ...revisionFields,
           items: finalSelected.map(({ product, reason }) => ({
             product_id: product.id,
@@ -1034,21 +1372,23 @@ async function handler(req: Request): Promise<Response> {
             },
           })),
         });
+        logPerf('response_construction', perfNow() - responseStarted);
+        return finish(response);
       } catch (err) {
         lastError = err instanceof Error ? err.message : 'unknown';
         if (lastError === 'ai_missing') {
-          return friendlyError('ai', 500);
+          return finish(friendlyError('ai', 500));
         }
         // Keep retrying for no_products/budget/invalid_ai within MAX_ATTEMPTS
         continue;
       }
     }
 
-    if (lastError === 'budget') return friendlyError('budget', 422);
-    if (lastError === 'ai') return friendlyError('ai', 502);
-    return friendlyError('invalid_ai', 422);
+    if (lastError === 'budget') return finish(friendlyError('budget', 422));
+    if (lastError === 'ai') return finish(friendlyError('ai', 502));
+    return finish(friendlyError('invalid_ai', 422));
   } catch {
-    return friendlyError('unknown', 500);
+    return finish(friendlyError('unknown', 500));
   }
 }
 

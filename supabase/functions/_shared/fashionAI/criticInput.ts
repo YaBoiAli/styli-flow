@@ -1,4 +1,5 @@
 import type { FashionCriticProduct, FashionRevisionCatalogProduct } from './types.ts';
+import { visualForPrompt, type VisualAttributes } from '../catalog/visualAttributes.ts';
 
 export type CatalogLike = {
   id: string;
@@ -15,6 +16,7 @@ export type CatalogLike = {
   aesthetic_tags?: string[];
   occasion_tags?: string[];
   image_url?: string | null;
+  visual_attributes?: VisualAttributes | null;
 };
 
 export function isUsableImageUrl(url: string | null | undefined): boolean {
@@ -34,6 +36,7 @@ export function criticProductsFromCatalog(products: CatalogLike[]): FashionCriti
     const usable = isUsableImageUrl(rawUrl);
     const unique = usable && rawUrl && !seenImages.has(rawUrl);
     if (unique && rawUrl) seenImages.add(rawUrl);
+    const visual = visualForPrompt(product.visual_attributes);
     return {
       product_id: product.id,
       name: product.name,
@@ -50,6 +53,7 @@ export function criticProductsFromCatalog(products: CatalogLike[]): FashionCriti
       occasion_tags: product.occasion_tags ?? [],
       image_url: unique ? rawUrl : null,
       image_available: Boolean(unique),
+      ...(visual ? { visual } : {}),
     };
   });
 }
@@ -64,19 +68,23 @@ export function criticImageUrls(products: FashionCriticProduct[]): string[] {
 export function revisionCatalogFromProducts(
   products: CatalogLike[],
 ): FashionRevisionCatalogProduct[] {
-  return products.map((product) => ({
-    product_id: product.id,
-    name: product.name,
-    brand: product.brand,
-    category: product.category,
-    subcategory: product.subcategory ?? null,
-    color: product.color ?? '',
-    colors: product.colors ?? [],
-    material: product.material ?? null,
-    fit: product.fit ?? null,
-    silhouette: product.silhouette ?? null,
-    style_tags: product.style_tags ?? [],
-    aesthetic_tags: product.aesthetic_tags ?? [],
-    occasion_tags: product.occasion_tags ?? [],
-  }));
+  return products.map((product) => {
+    const visual = visualForPrompt(product.visual_attributes);
+    return {
+      product_id: product.id,
+      name: product.name,
+      brand: product.brand,
+      category: product.category,
+      subcategory: product.subcategory ?? null,
+      color: product.color ?? '',
+      colors: product.colors ?? [],
+      material: product.material ?? null,
+      fit: product.fit ?? null,
+      silhouette: product.silhouette ?? null,
+      style_tags: product.style_tags ?? [],
+      aesthetic_tags: product.aesthetic_tags ?? [],
+      occasion_tags: product.occasion_tags ?? [],
+      ...(visual ? { visual } : {}),
+    };
+  });
 }

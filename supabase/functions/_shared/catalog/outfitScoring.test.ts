@@ -2,7 +2,8 @@
  * Outfit-level scorer comparisons. Asserts relative quality, not exact points.
  * Run: npm run test:outfit-score
  */
-import { extractColorTokens, scoreOutfit, type OutfitScoreItem } from './outfitScoring.ts';
+import { extractColorTokens, OUTFIT_SCORE_WEIGHTS, productStyleAffinity, scoreOutfit, UNCERTAIN_DIMENSION, type OutfitScoreItem } from './outfitScoring.ts';
+import { emptyVisualAttributes, type VisualAttributes } from './visualAttributes.ts';
 
 let failed = 0;
 let passed = 0;
@@ -302,6 +303,7 @@ const casualClassic = scoreOutfit([blackTee, blueJeans, whiteSneakers], classicE
 const earthMedium = scoreOutfit([creamSweater, olivePants, brownShoes], {
   ...oldMoneyWork,
   skinTone: 'medium',
+  colorPreference: 'complexion',
 });
 const stackedStreet = scoreOutfit([oversizedTee, baggyPants, runningShoes], streetEveryday);
 const stackedOldMoney = scoreOutfit([oversizedTee, baggyPants, runningShoes], oldMoneyWork);
@@ -347,6 +349,7 @@ assert(oldMoneyClassic.score >= 70, 'classic old-money outfit should be solid');
 const earthTan = scoreOutfit([creamSweater, olivePants, brownShoes], {
   ...oldMoneyWork,
   skinTone: 'tan',
+  colorPreference: 'complexion',
 });
 assert(
   earthMedium.breakdown.skinTone >= earthTan.breakdown.skinTone,
@@ -382,6 +385,406 @@ assert(blueTokens.includes('blue'), 'classifies cobalt as blue');
 
 assert(casualClassic.issues.length === 0, 'strong casual outfit should not invent issues');
 assert(scoreOutfit([], classicEveryday).score === 0, 'empty outfit scores 0');
+
+const noShoesLook = scoreOutfit([blackTee, blueJeans], {
+  ...classicEveryday,
+  footwearPreference: 'none',
+});
+assert(noShoesLook.score > 0, 'no-shoes top+bottom still scores');
+assert(
+  noShoesLook.issues.every((issue) => !/missing shoes|no shoes|incomplete/i.test(issue)),
+  'no-shoes scoring does not flag missing footwear',
+);
+assert(noShoesLook.breakdown.proportion > 0, 'proportion works on top+bottom');
+
+function withVisual(
+  base: OutfitScoreItem,
+  visual: Partial<VisualAttributes> & { confidence?: number },
+): OutfitScoreItem {
+  return {
+    ...base,
+    visual_attributes: {
+      ...emptyVisualAttributes(visual.confidence ?? 0.85),
+      ...visual,
+      confidence: visual.confidence ?? 0.85,
+    },
+  };
+}
+
+const dustyBlueTop = withVisual(blackTee, {
+  primary_color: 'dusty blue',
+  color_family: 'blue',
+  saturation: 'low',
+  brightness: 'medium',
+  fit: 'regular',
+  pattern: 'solid',
+  visual_weight: 'light',
+  visual_intensity: 2,
+});
+const electricBlueTop = withVisual(blackTee, {
+  primary_color: 'electric blue',
+  color_family: 'blue',
+  saturation: 'high',
+  brightness: 'light',
+  pattern: 'solid',
+  visual_intensity: 8,
+});
+const creamBottom = withVisual(blueJeans, {
+  primary_color: 'cream',
+  color_family: 'cream',
+  saturation: 'low',
+  brightness: 'light',
+  pattern: 'solid',
+  visual_weight: 'medium',
+  visual_intensity: 2,
+});
+const whiteKicks = withVisual(whiteSneakers, {
+  primary_color: 'white',
+  color_family: 'white',
+  saturation: 'low',
+  brightness: 'light',
+  pattern: 'solid',
+  visual_intensity: 1,
+});
+
+const dustyLook = scoreOutfit([dustyBlueTop, creamBottom, whiteKicks], classicEveryday);
+const electricLook = scoreOutfit([electricBlueTop, creamBottom, whiteKicks], classicEveryday);
+assert(
+  dustyLook.breakdown.color >= electricLook.breakdown.color,
+  '10: muted blue should not be treated like electric blue',
+);
+
+const darkNavyTop = withVisual(blackTee, {
+  primary_color: 'navy',
+  color_family: 'navy',
+  saturation: 'low',
+  brightness: 'dark',
+  pattern: 'solid',
+});
+const lightIvoryBottom = withVisual(blueJeans, {
+  primary_color: 'ivory',
+  color_family: 'cream',
+  saturation: 'low',
+  brightness: 'light',
+  pattern: 'solid',
+});
+const brightnessMix = scoreOutfit([darkNavyTop, lightIvoryBottom, whiteKicks], classicEveryday);
+assert(brightnessMix.breakdown.color >= 80, '11: dark + light neutrals stay harmonious');
+
+const analogousLook = scoreOutfit(
+  [
+    withVisual(burgundyTop, { primary_color: 'burgundy', color_family: 'red', saturation: 'low', brightness: 'dark' }),
+    withVisual(blackPants, { primary_color: 'black', color_family: 'black', saturation: 'low', brightness: 'dark' }),
+    whiteKicks,
+  ],
+  classicEveryday,
+);
+assert(analogousLook.breakdown.color >= 80, '7: analogous/neutral accent palette stays high');
+
+const complementaryLook = scoreOutfit(
+  [
+    withVisual(blackTee, { primary_color: 'navy', color_family: 'blue', saturation: 'medium', brightness: 'dark' }),
+    withVisual(olivePants, { primary_color: 'olive', color_family: 'green', saturation: 'low', brightness: 'medium' }),
+    whiteKicks,
+  ],
+  classicEveryday,
+);
+assert(complementaryLook.breakdown.color >= 70, '8: neighboring hues are not a clash');
+
+const competingVisual = scoreOutfit(
+  [
+    withVisual(neonOrangeTop, {
+      primary_color: 'neon orange',
+      color_family: 'orange',
+      saturation: 'high',
+      brightness: 'light',
+      visual_intensity: 9,
+    }),
+    withVisual(neonGreenPants, {
+      primary_color: 'neon green',
+      color_family: 'green',
+      saturation: 'high',
+      brightness: 'light',
+      visual_intensity: 9,
+    }),
+    withVisual(cobaltShoes, {
+      primary_color: 'cobalt',
+      color_family: 'blue',
+      saturation: 'high',
+      brightness: 'medium',
+      visual_intensity: 7,
+    }),
+  ],
+  { style: 'Minimalist', occasion: 'Everyday' },
+);
+assert(competingVisual.breakdown.color < dustyLook.breakdown.color, '9: competing saturated colors score lower');
+
+const fairNavyTop = scoreOutfit(
+  [darkNavyTop, creamBottom, whiteKicks],
+  { ...classicEveryday, skinTone: 'fair', colorPreference: 'complexion' },
+);
+const fairPeachTop = scoreOutfit(
+  [
+    withVisual(blackTee, {
+      primary_color: 'peach',
+      color_family: 'orange',
+      saturation: 'medium',
+      brightness: 'light',
+    }),
+    creamBottom,
+    whiteKicks,
+  ],
+  { ...classicEveryday, skinTone: 'fair', colorPreference: 'complexion' },
+);
+assert(
+  fairNavyTop.breakdown.skinTone > fairPeachTop.breakdown.skinTone,
+  '12: skin-tone lists still distinguish flattering vs avoided colors',
+);
+
+const peachShoes = withVisual(whiteSneakers, {
+  primary_color: 'peach',
+  color_family: 'orange',
+  saturation: 'medium',
+  brightness: 'light',
+});
+const navyTopPeachShoes = scoreOutfit(
+  [darkNavyTop, creamBottom, peachShoes],
+  { ...classicEveryday, skinTone: 'fair', colorPreference: 'complexion' },
+);
+const peachTopWhiteShoes = scoreOutfit(
+  [
+    withVisual(blackTee, {
+      primary_color: 'peach',
+      color_family: 'orange',
+      saturation: 'medium',
+      brightness: 'light',
+    }),
+    creamBottom,
+    whiteKicks,
+  ],
+  { ...classicEveryday, skinTone: 'fair', colorPreference: 'complexion' },
+);
+assert(
+  navyTopPeachShoes.breakdown.skinTone > peachTopWhiteShoes.breakdown.skinTone,
+  '13: top color influences skin-tone more than shoes',
+);
+
+const heavyOversized = withVisual(oversizedTee, { fit: 'oversized', visual_weight: 'heavy', silhouette: 'boxy' });
+const heavyBaggy = withVisual(baggyPants, { fit: 'baggy', silhouette: 'wide', visual_weight: 'heavy' });
+const stackedVisual = scoreOutfit([heavyOversized, heavyBaggy, runningShoes], streetEveryday);
+const stackedVisualTailored = scoreOutfit([heavyOversized, heavyBaggy, runningShoes], oldMoneyWork);
+assert(stackedVisual.breakdown.proportion > stackedVisualTailored.breakdown.proportion, '14: oversized + baggy still style-dependent');
+
+const straightVisual = withVisual(straightPants, { fit: 'regular', silhouette: 'straight', visual_weight: 'medium' });
+assert(
+  scoreOutfit([heavyOversized, straightVisual, whiteSneakers], streetEveryday).breakdown.proportion >=
+    stackedVisualTailored.breakdown.proportion,
+  '15: oversized + straight is more balanced than two heavies on a tailored vibe',
+);
+
+const fittedTop = withVisual(blackTee, { fit: 'fitted', silhouette: 'fitted', visual_weight: 'light' });
+const wideBottom = withVisual(blueJeans, { fit: 'relaxed', silhouette: 'wide', visual_weight: 'heavy' });
+assert(
+  scoreOutfit([fittedTop, wideBottom, whiteSneakers], classicEveryday).breakdown.proportion >= 80,
+  '16: fitted + wide-leg is balanced',
+);
+
+const croppedTop = withVisual(blackTee, { length: 'cropped', silhouette: 'cropped', visual_weight: 'light' });
+assert(
+  scoreOutfit([croppedTop, wideBottom, whiteSneakers], classicEveryday).breakdown.proportion >=
+    scoreOutfit([fittedTop, baggyPants, whiteSneakers], classicEveryday).breakdown.proportion,
+  '17: cropped + high-volume bottom is acceptable',
+);
+
+const lightTee = withVisual(blackTee, { visual_weight: 'light', fit: 'fitted' });
+const heavyBottom = withVisual(baggyPants, { visual_weight: 'heavy', silhouette: 'wide' });
+assert(
+  scoreOutfit([lightTee, heavyBottom, whiteSneakers], streetEveryday).breakdown.proportion >
+    scoreOutfit([heavyOversized, heavyBaggy, runningShoes], oldMoneyWork).breakdown.proportion,
+  '18: visual weight can balance a look',
+);
+
+const solidGraphic = scoreOutfit(
+  [
+    withVisual(blackTee, { pattern: 'solid', pattern_intensity: 'low', visual_intensity: 2 }),
+    withVisual(blueJeans, { pattern: 'graphic', pattern_scale: 'medium', pattern_intensity: 'medium', visual_intensity: 5 }),
+    whiteKicks,
+  ],
+  streetEveryday,
+);
+const doubleGraphic = scoreOutfit(
+  [
+    withVisual(oversizedTee, { pattern: 'graphic', pattern_scale: 'large', pattern_intensity: 'high', visual_intensity: 8 }),
+    withVisual(blueJeans, { pattern: 'graphic', pattern_scale: 'large', pattern_intensity: 'high', visual_intensity: 8 }),
+    whiteKicks,
+  ],
+  classicEveryday,
+);
+assert(solidGraphic.breakdown.cohesion > doubleGraphic.breakdown.cohesion, '19/20: solid + graphic beats graphic + graphic');
+
+const mixedScale = scoreOutfit(
+  [
+    withVisual(oversizedTee, { pattern: 'graphic', pattern_scale: 'large', pattern_intensity: 'medium', visual_intensity: 6 }),
+    withVisual(blueJeans, { pattern: 'stripe', pattern_scale: 'small', pattern_intensity: 'low', visual_intensity: 3 }),
+    whiteKicks,
+  ],
+  classicEveryday,
+);
+assert(mixedScale.breakdown.cohesion > doubleGraphic.breakdown.cohesion, '21: large + small is milder than two large graphics');
+
+const multiHigh = scoreOutfit(
+  [
+    withVisual(oversizedTee, { pattern: 'graphic', pattern_scale: 'large', pattern_intensity: 'high', visual_intensity: 9 }),
+    withVisual(blueJeans, { pattern: 'plaid', pattern_scale: 'large', pattern_intensity: 'high', visual_intensity: 8 }),
+    whiteKicks,
+  ],
+  { style: 'Minimalist', occasion: 'Everyday' },
+);
+assert(multiHigh.breakdown.cohesion <= mixedScale.breakdown.cohesion, '22: multiple high-intensity patterns are weaker');
+
+const metadataOnly = scoreOutfit([blackTee, blueJeans, whiteSneakers], classicEveryday);
+assert(metadataOnly.breakdown.color > 0 && metadataOnly.score > 0, '24: missing visual falls back to metadata');
+
+const loudButUncertain = scoreOutfit(
+  [
+    withVisual(oversizedTee, {
+      confidence: 0.2,
+      pattern: 'graphic',
+      pattern_scale: 'large',
+      pattern_intensity: 'high',
+      visual_intensity: 10,
+      saturation: 'high',
+    }),
+    withVisual(blueJeans, {
+      confidence: 0.1,
+      pattern: 'graphic',
+      pattern_scale: 'large',
+      pattern_intensity: 'high',
+      visual_intensity: 10,
+    }),
+    whiteSneakers,
+  ],
+  classicEveryday,
+);
+const catalogGraphics = scoreOutfit(
+  [
+    { ...oversizedTee, pattern: 'graphic' },
+    { ...blueJeans, pattern: 'solid' },
+    whiteSneakers,
+  ],
+  classicEveryday,
+);
+assert(
+  Math.abs(loudButUncertain.score - catalogGraphics.score) < 12,
+  '25: low-confidence visual data does not dominate scoring',
+);
+
+const noShoesVisual = scoreOutfit([dustyBlueTop, creamBottom], {
+  ...classicEveryday,
+  footwearPreference: 'none',
+});
+assert(noShoesVisual.score > 0, '26: no-shoes generation remains valid without footwear');
+assert(
+  noShoesVisual.issues.every((issue) => !/missing shoes|no shoes|incomplete/i.test(issue)),
+  '28: no-shoes critic/scoring does not complain about missing footwear',
+);
+
+const breakdownKeys = Object.keys(casualClassic.breakdown).sort().join(',');
+assert(
+  breakdownKeys === 'cohesion,color,fit,occasion,proportion,season,skinTone,style',
+  '30: fashion_score still contains all existing dimensions',
+);
+assert(
+  OUTFIT_SCORE_WEIGHTS.style === 0.2 &&
+    OUTFIT_SCORE_WEIGHTS.color === 0.2 &&
+    OUTFIT_SCORE_WEIGHTS.proportion === 0.2 &&
+    OUTFIT_SCORE_WEIGHTS.skinTone === 0.1 &&
+    OUTFIT_SCORE_WEIGHTS.occasion === 0.1 &&
+    OUTFIT_SCORE_WEIGHTS.fit === 0.05 &&
+    OUTFIT_SCORE_WEIGHTS.season === 0.05 &&
+    OUTFIT_SCORE_WEIGHTS.cohesion === 0.1,
+  '30b: cohesion carries more of the outfit-quality signal than unused fit',
+);
+
+const styleFirstNavy = scoreOutfit(
+  [darkNavyTop, creamBottom, whiteKicks],
+  { ...classicEveryday, skinTone: 'fair' },
+);
+const complexionNavy = scoreOutfit(
+  [darkNavyTop, creamBottom, whiteKicks],
+  { ...classicEveryday, skinTone: 'fair', colorPreference: 'complexion' },
+);
+assert(styleFirstNavy.breakdown.skinTone === 70, 'style_first does not apply complexion scoring');
+assert(
+  complexionNavy.breakdown.skinTone !== 70 || complexionNavy.breakdown.skinTone === fairNavyTop.breakdown.skinTone,
+  'complexion preference enables complexion scoring',
+);
+assert(
+  complexionNavy.breakdown.skinTone > styleFirstNavy.breakdown.skinTone,
+  'complexion preference actually changes the skinTone dimension',
+);
+
+const noVisualColor = item({ category: 'top', name: 'Unlabeled Top' });
+const missingColorLook = scoreOutfit(
+  [noVisualColor, blueJeans, whiteSneakers],
+  { ...classicEveryday, skinTone: 'fair', colorPreference: 'complexion' },
+);
+assert(missingColorLook.breakdown.skinTone > 0, 'missing visual color is handled safely');
+
+const randomUntagged = scoreOutfit(
+  [
+    item({ category: 'top', name: 'Generic Shirt', color: 'red' }),
+    item({ category: 'bottom', name: 'Generic Pants', color: 'green' }),
+    item({ category: 'shoes', name: 'Generic Shoes', color: 'blue' }),
+  ],
+  streetEveryday,
+);
+assert(
+  casualClassic.score > randomUntagged.score,
+  'cohesive outfit beats technically valid but unstyled random combo',
+);
+
+const unknownStyle = productStyleAffinity(
+  item({ category: 'top', name: 'Article 7' }),
+  'Streetwear',
+);
+assert(unknownStyle === UNCERTAIN_DIMENSION, '6: missing style metadata is uncertain, not positive');
+assert(unknownStyle < 70, '6b: unknown style is not treated as a good match');
+assert(
+  productStyleAffinity(blackTee, 'Streetwear') > unknownStyle,
+  '7: existing style tags remain positive evidence',
+);
+assert(
+  clashMix.score < oldMoneyClassic.score,
+  'technically valid but incohesive outfit scores lower than a cohesive one',
+);
+assert(
+  clashMix.breakdown.style < oldMoneyClassic.breakdown.style,
+  'style compatibility matters for the complete outfit',
+);
+assert(
+  clashMix.breakdown.proportion <= balancedStreet.breakdown.proportion,
+  'silhouette/proportion matters',
+);
+
+const clashWithComplexion = scoreOutfit([oversizedTee, formalTrousers, dressLoafers], {
+  ...streetEveryday,
+  skinTone: 'medium',
+  colorPreference: 'complexion',
+});
+const classicWithComplexion = scoreOutfit([oxfordShirt, chinos, dressLoafers], {
+  ...oldMoneyWork,
+  skinTone: 'medium',
+  colorPreference: 'complexion',
+});
+assert(
+  classicWithComplexion.score > clashWithComplexion.score,
+  'complexion compatibility does not dominate other styling factors',
+);
+assert(
+  fairNavyTop.breakdown.skinTone > fairPeachTop.breakdown.skinTone,
+  'complexion compatibility matters when enabled',
+);
 
 if (failed) {
   console.error(`\n${failed} failed, ${passed} passed`);

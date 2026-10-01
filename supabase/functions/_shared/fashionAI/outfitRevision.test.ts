@@ -284,6 +284,41 @@ const goodRevision = {
   items: [{ product_id: 't1' }, { product_id: 'b2' }, { product_id: 's1' }],
 };
 
+assert(
+  parseFashionRevisionResult(
+    JSON.stringify({ items: [{ product_id: 't1' }, { product_id: 'b2' }] }),
+    allowed,
+    { requireShoes: false },
+  )?.items.length === 2,
+  'no-shoes: two-item revision parses',
+);
+const parsedRevisionWithShoes = parseFashionRevisionResult(
+  JSON.stringify({ top_id: 't1', bottom_id: 'b1', shoes_id: 's1' }),
+  allowed,
+  { requireShoes: false },
+);
+assert(
+  Boolean(parsedRevisionWithShoes?.items.some((item) => item.product_id === 's1')),
+  'no-shoes: revision parse does not silently drop a returned shoe',
+);
+
+function fakeValidateNoShoes(outfit: { items: Array<{ product_id: string; reason: string }> }): Built {
+  const seen = new Set<string>();
+  const selected: Built['selected'] = [];
+  for (const item of outfit.items) {
+    const product = catalog[item.product_id as keyof typeof catalog];
+    if (!product) throw new Error('invalid_ai');
+    if (product.category === 'shoes') throw new Error('invalid_ai');
+    if (seen.has(product.category)) throw new Error('invalid_ai');
+    seen.add(product.category);
+    selected.push({ product, reason: item.reason });
+  }
+  for (const required of ['top', 'bottom']) {
+    if (!seen.has(required)) throw new Error('invalid_ai');
+  }
+  return { selected, totalPrice: 90 };
+}
+
 async function main() {
   const noNeed = await runRevision(critic({ overall_assessment: 'strong' }), goodRevision);
   assert(noNeed.result.revision.fashion_revision_attempted === false, '1b: strong does not call revision path');
@@ -326,6 +361,17 @@ async function main() {
   const noImages = await runRevision(undefined, goodRevision, { available: false });
   assert(noImages.result.revision.fashion_revision_attempted === false, '25: no critic → original returned');
   assert(noImages.result.fashion.score === 76, '25b: original still returned');
+
+  const addedShoes = await runRevision(
+    critic({ overall_assessment: 'weak' }),
+    { items: [{ product_id: 't1' }, { product_id: 'b2' }, { product_id: 's1' }] },
+    { validate: fakeValidateNoShoes },
+  );
+  assert(
+    addedShoes.result.revision.fashion_revision_accepted === false,
+    'no-shoes: revision cannot add footwear',
+  );
+  assert(addedShoes.result.fashion.score === 76, 'no-shoes: original kept when revision adds shoes');
 
   const fields = {
     ...toFashionResponseFields(weakAccepted.result.fashion),

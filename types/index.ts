@@ -33,6 +33,17 @@ export type Product = {
   category: 'top' | 'bottom' | 'footwear' | 'outerwear' | 'accessory';
   reason?: string;
   purchaseUrl?: string;
+  brand?: string;
+  color?: string;
+};
+
+/** Snapshot of the last generated outfit, used only as a rebuild diversity signal. */
+export type PreviousOutfitProduct = {
+  productId: string;
+  name: string;
+  brand?: string;
+  category: 'top' | 'bottom' | 'shoes' | 'outerwear' | 'accessory';
+  color?: string;
 };
 
 /** UI/display outfit shape used by existing screens/components. */
@@ -94,6 +105,12 @@ export type BrandRequest = {
 /** Which department to shop; `any` allows both. */
 export type GenderPreference = 'men' | 'women' | 'any';
 
+/** Whether generation should include footwear. Default is `include`. */
+export type FootwearPreference = 'include' | 'none';
+
+/** Optional color guidance. Default `style_first` keeps general styling. */
+export type ColorPreference = 'complexion' | 'style_first';
+
 /** Fashion-friendly complexion scale used for color matching. */
 export type SkinTone = 'fair' | 'light' | 'medium' | 'tan' | 'deep' | 'rich';
 
@@ -113,6 +130,13 @@ export type UserPreferences = {
   /** When false, `selectedBudget` excludes shoes and `shoeBudget` caps them. */
   shoesInBudget: boolean;
   shoeBudget: number | null;
+  /** `none` generates a footwear-free outfit. Default `include` keeps current behavior. */
+  footwearPreference: FootwearPreference;
+  /**
+   * `complexion` uses complexion as one color factor.
+   * Default `style_first` preserves general styling.
+   */
+  colorPreference: ColorPreference;
   bodyMeasurements: BodyMeasurements | null;
   gender: GenderPreference | null;
   skinTone: SkinTone | null;

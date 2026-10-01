@@ -18,6 +18,11 @@ import {
   STYLE_SILHOUETTE,
 } from '../_shared/catalog/fashionSignals.ts';
 import { freshSince } from '../_shared/catalog/freshness.ts';
+import {
+  colorPlacementWeight,
+  visualIsUsable,
+  type VisualAttributes,
+} from '../_shared/catalog/visualAttributes.ts';
 
 export { isClassyLook, parseSkinTone, type SkinTonePreference };
 
@@ -50,6 +55,13 @@ export type CatalogProduct = {
   pattern: string | null;
   formality: string | null;
   source: string;
+  /** In-memory Phase 4 visual analysis. Not a database column. */
+  visual_attributes?: VisualAttributes | null;
+  /** In-memory Channel3 fields. Not database columns. */
+  sizes?: string[];
+  availability?: string;
+  source_product_id?: string;
+  image_urls?: string[];
 };
 
 export type CatalogScope = {
@@ -312,13 +324,8 @@ function tagsMatch(productTags: string[], wanted: string[]): boolean {
   return wanted.some((tag) => have.has(attrKey(tag)));
 }
 
-/** Relevance of a product to the vibe/occasion from enriched attrs, tags, or text. */
-export function relevanceScore(
-  product: CatalogProduct,
-  styleTags: string[],
-  occasion: string,
-): number {
-  const text = [
+function productSearchText(product: CatalogProduct): string {
+  return [
     product.name,
     product.subcategory,
     product.material,
@@ -331,25 +338,24 @@ export function relevanceScore(
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
-  const occasionTag = attrKey(occasion);
-  const season = currentSeason();
+}
 
+/** Style-tag, silhouette, and keyword contribution. Used by shortlist logs. */
+export function productStyleScore(product: CatalogProduct, styleTags: string[]): number {
+  const text = productSearchText(product);
   let score = 0;
   if (tagsMatch(product.style_tags, styleTags)) score += 6;
   if (tagsMatch(product.aesthetic_tags, styleTags)) score += 4;
-  if (tagsMatch(product.occasion_tags, [occasionTag, occasion])) score += 3;
-  if (product.season_tags.some((tag) => attrKey(tag) === season || attrKey(tag) === 'all_season')) {
-    score += 2;
-  }
-  if (product.formality && occasionFormality(occasion).includes(product.formality as never)) {
-    score += 2;
-  }
+  const visual = visualIsUsable(product) ? product.visual_attributes : null;
+  if (visual?.aesthetics?.length && tagsMatch(visual.aesthetics, styleTags)) score += 4;
   for (const style of styleTags) {
     const key = attrKey(style);
-    if (product.fit && (STYLE_FIT[style] ?? STYLE_FIT[key] ?? []).includes(product.fit)) score += 2;
+    const fit = product.fit ?? (visual?.fit ?? null);
+    const silhouette = product.silhouette ?? (visual?.silhouette === 'wide' ? 'wide_leg' : visual?.silhouette ?? null);
+    if (fit && (STYLE_FIT[style] ?? STYLE_FIT[key] ?? []).includes(fit)) score += 2;
     if (
-      product.silhouette &&
-      (STYLE_SILHOUETTE[style] ?? STYLE_SILHOUETTE[key] ?? []).includes(product.silhouette)
+      silhouette &&
+      (STYLE_SILHOUETTE[style] ?? STYLE_SILHOUETTE[key] ?? []).includes(silhouette)
     ) {
       score += 2;
     }
@@ -358,7 +364,35 @@ export function relevanceScore(
     const hits = keywordHits(text, STYLE_KEYWORDS[style] ?? STYLE_KEYWORDS[attrKey(style)] ?? []);
     score += index === 0 ? hits * 2 : hits;
   }
-  score += keywordHits(text, OCCASION_KEYWORDS[occasion.toLowerCase()] ?? OCCASION_KEYWORDS[occasionTag] ?? []);
+  return score;
+}
+
+/** Occasion-tag and keyword contribution. Used by shortlist logs. */
+export function productOccasionScore(product: CatalogProduct, occasion: string): number {
+  const occasionTag = attrKey(occasion);
+  let score = 0;
+  if (tagsMatch(product.occasion_tags, [occasionTag, occasion])) score += 3;
+  score += keywordHits(
+    productSearchText(product),
+    OCCASION_KEYWORDS[occasion.toLowerCase()] ?? OCCASION_KEYWORDS[occasionTag] ?? [],
+  );
+  return score;
+}
+
+/** Relevance of a product to the vibe/occasion from enriched attrs, tags, or text. */
+export function relevanceScore(
+  product: CatalogProduct,
+  styleTags: string[],
+  occasion: string,
+): number {
+  const season = currentSeason();
+  let score = productStyleScore(product, styleTags) + productOccasionScore(product, occasion);
+  if (product.season_tags.some((tag) => attrKey(tag) === season || attrKey(tag) === 'all_season')) {
+    score += 2;
+  }
+  if (product.formality && occasionFormality(occasion).includes(product.formality as never)) {
+    score += 2;
+  }
   if (isDressFootwear(product) && isClassyLook(styleTags[0] ?? '', occasion)) score += 5;
   return score;
 }
@@ -367,9 +401,25 @@ export function relevanceScore(
 export function skinToneColorScore(
   product: CatalogProduct,
   skinTone: SkinTonePreference | null,
+  colorPreference: 'complexion' | 'style_first' = 'style_first',
 ): number {
-  if (!skinTone) return 0;
-  const text = [product.color, ...product.colors, product.name].filter(Boolean).join(' ').toLowerCase();
+  if (!skinTone || colorPreference !== 'complexion') return 0;
+  const visual = product.visual_attributes;
+  const text = [
+    visualIsUsable(product) ? visual?.primary_color : null,
+    visualIsUsable(product) ? visual?.color_family : null,
+    product.color,
+    ...product.colors,
+    product.name,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (!text.trim()) return 0;
   const guide = SKIN_TONE_COLORS[skinTone];
-  return keywordHits(text, guide.prefer) * 2 - keywordHits(text, guide.avoid);
+  const raw = keywordHits(text, guide.prefer) * 2 - keywordHits(text, guide.avoid);
+  if (!visualIsUsable(product)) {
+    return Math.round(raw * (0.5 + colorPlacementWeight(product.category, 'include')));
+  }
+  return Math.round(raw * (0.5 + colorPlacementWeight(product.category, 'include')));
 }

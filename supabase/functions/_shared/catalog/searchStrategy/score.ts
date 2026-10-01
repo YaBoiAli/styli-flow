@@ -92,7 +92,7 @@ function occasionScore(
   occasionWords: string[],
   intent: SearchIntent,
 ): number {
-  if (!occasionKey && !isNightOutIntent(intent.style, intent.occasion)) return 70;
+  if (!occasionKey && !isNightOutIntent(intent.style, intent.occasion)) return 50;
   const key = occasionKey || 'night out';
   const words = occasionWords.length ? occasionWords : OCCASION_KEYWORDS[key] ?? OCCASION_KEYWORDS.night_out ?? [];
   const base = clamp(keywordScore(productText, words) + phraseBonus(productText, key));
@@ -106,7 +106,7 @@ function applyNightOutSoftPenalty(score: number, productText: string, intent: Se
 }
 
 function keywordScore(text: string, keywords: string[]): number {
-  if (!keywords.length) return 55;
+  if (!keywords.length) return 50;
   const hits = keywordHits(text, keywords);
   return clamp(40 + hits * 18);
 }
@@ -119,7 +119,7 @@ function phraseBonus(text: string, phrase: string): number {
 }
 
 function categoryScore(product: NormalizedProduct, intent: SearchIntent): number {
-  if (!intent.category) return 80;
+  if (!intent.category) return 50;
   if (product.category !== intent.category) return 0;
   const terms = CATEGORY_TERMS[intent.category] ?? [];
   const name = `${product.product_name} ${product.subcategory ?? ''}`.toLowerCase();
@@ -134,7 +134,7 @@ function brandScore(brand: string, preferred?: string[]): number {
 
 function genderScore(product: NormalizedProduct, intent: SearchIntent): number {
   if (!intent.gender || intent.gender === 'unisex') return 70;
-  if (!product.gender) return 60;
+  if (!product.gender) return 50;
   if (product.gender === 'unisex') return 80;
   return product.gender === intent.gender ? 100 : 0;
 }
@@ -161,7 +161,7 @@ export function sourceQualityScore(product: NormalizedProduct, intent: SearchInt
   const marketplace = isMarketplaceRetailer(product.brand);
   const fashionIntent = Boolean(intent.style || preferred.length);
   if (marketplace && fashionIntent) return 30;
-  if (marketplace) return 55;
+  if (marketplace) return 50;
   return 80;
 }
 

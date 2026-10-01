@@ -19,7 +19,17 @@ export type GenerateOutfitRequest = {
   budget: number;
   /** Separate cap for shoes; null/undefined means shoes are inside `budget`. */
   shoeBudget?: number | null;
+  /** Default `include` keeps shoes required. `none` is footwear-free. */
+  footwearPreference?: 'include' | 'none';
   excludeProductIds?: string[];
+  previousOutfitProductIds?: string[];
+  previousOutfit?: Array<{
+    product_id: string;
+    name?: string;
+    brand?: string;
+    category?: string;
+    color?: string;
+  }>;
   measurements?: BodyMeasurements | null;
   inspirationSources?: InspirationSource[];
   /** Empty means "No Preference". */
@@ -27,6 +37,7 @@ export type GenerateOutfitRequest = {
   brandRequests?: BrandRequest[];
   gender?: GenderPreference;
   skinTone?: SkinTone | null;
+  colorPreference?: 'complexion' | 'style_first';
   age?: number | null;
 };
 
@@ -89,6 +100,7 @@ export type GenerateOutfitResponse = {
   total_price: number;
   catalog_source?: 'channel3_live' | 'hybrid' | 'catalog_fallback' | 'live' | 'demo';
   channel3_retrieval_attempted?: boolean;
+  footwear_preference?: 'include' | 'none';
   items: EdgeItem[];
   error?: string;
   code?: string;
@@ -114,9 +126,18 @@ function toUiProduct(product: EdgeProduct, reason: string): Product {
     price: Number(product.price),
     imageUrl: product.image_url,
     category: toUiCategory(product.category),
+    color: product.color,
     reason,
     purchaseUrl: product.purchase_url || undefined,
+    brand: product.brand,
   };
+}
+
+function isFootwearEdgeProduct(product: EdgeProduct): boolean {
+  if (product.category === 'shoes') return true;
+  return /\b(sneakers?|shoes?|boots?|sandals?|heels?|loafers?|slides?|mules?|trainers?|footwear|oxfords|derbys)\b/i.test(
+    product.name,
+  );
 }
 
 export function mapGenerateResponseToOutfit(
@@ -175,11 +196,15 @@ export async function generateOutfit(
         occasion: request.occasion,
         budget: request.budget,
         shoe_budget: request.shoeBudget ?? null,
+        footwear_preference: request.footwearPreference === 'none' ? 'none' : 'include',
         exclude_product_ids: request.excludeProductIds ?? [],
+        previous_outfit_product_ids: request.previousOutfitProductIds ?? [],
+        previous_outfit: request.previousOutfit ?? [],
         measurements: measurementsPayload(request.measurements),
         inspiration: inspirationPayload(request.inspirationSources),
         gender: request.gender ?? 'any',
         skin_tone: request.skinTone ?? null,
+        color_preference: request.colorPreference === 'complexion' ? 'complexion' : 'style_first',
         age: request.age ?? null,
         brand_preference: {
           mode: request.selectedBrands?.length ? 'selected' : 'no_preference',
@@ -221,10 +246,18 @@ export async function generateOutfit(
     );
   }
 
+  const minItems = request.footwearPreference === 'none' ? 2 : 3;
   if (
     !payload?.outfit_name ||
     !Array.isArray(payload.items) ||
-    payload.items.length < 3
+    payload.items.length < minItems
+  ) {
+    throw new OutfitGenerationError(FRIENDLY_FALLBACK, 'invalid_ai');
+  }
+
+  if (
+    request.footwearPreference === 'none' &&
+    payload.items.some((item) => isFootwearEdgeProduct(item.product))
   ) {
     throw new OutfitGenerationError(FRIENDLY_FALLBACK, 'invalid_ai');
   }

@@ -1,4 +1,5 @@
 import type { OutfitScore } from '../catalog/outfitScoring.ts';
+import { logPerf, perfNow } from '../perfLog.ts';
 import type { CriticRunResult } from './critiqueWinningOutfit.ts';
 import { countChangedItems, shouldAcceptRevision } from './revisionCompare.ts';
 import { revisionNeededReason, shouldReviseCritic } from './shouldReviseCritic.ts';
@@ -108,6 +109,8 @@ export async function applyOutfitRevision<TBuilt, TProduct>(params: {
     const reason = params.critic
       ? 'critic_did_not_identify_meaningful_issue'
       : 'critic_unavailable';
+    logPerf('revision', 'SKIPPED');
+    logPerf('revision_validation', 'SKIPPED');
     logOutfitRevision({ attempted: false, reason });
     return {
       built: params.original.built,
@@ -128,12 +131,17 @@ export async function applyOutfitRevision<TBuilt, TProduct>(params: {
 
   const trigger = revisionNeededReason(params.critic) ?? 'critic_issue';
   let revision: FashionRevisionResult | null = null;
+  const revisionStarted = perfNow();
   try {
     revision = await params.provider.reviseOutfit(params.revisionInput);
   } catch {
+    logPerf('revision', perfNow() - revisionStarted);
+    logPerf('revision_validation', 'SKIPPED');
     return keepOriginal('provider_error');
   }
+  logPerf('revision', perfNow() - revisionStarted);
   if (!revision) {
+    logPerf('revision_validation', 'SKIPPED');
     return keepOriginal('malformed_revision');
   }
 
@@ -145,9 +153,11 @@ export async function applyOutfitRevision<TBuilt, TProduct>(params: {
   };
 
   let built: TBuilt;
+  const revisionValidationStarted = perfNow();
   try {
     built = params.validate(outfit);
   } catch (err) {
+    logPerf('revision_validation', perfNow() - revisionValidationStarted);
     const reason = err instanceof Error ? err.message : 'validation_failed';
     return keepOriginal(reason === 'budget' ? 'budget' : 'validation_failed');
   }
@@ -158,8 +168,10 @@ export async function applyOutfitRevision<TBuilt, TProduct>(params: {
     products = params.productsOf(built);
     fashion = params.score(products);
   } catch {
+    logPerf('revision_validation', perfNow() - revisionValidationStarted);
     return keepOriginal('scoring_error');
   }
+  logPerf('revision_validation', perfNow() - revisionValidationStarted);
 
   const originalIds = params.original.items.map((item) => item.product_id);
   const revisedIds = items.map((item) => item.product_id);

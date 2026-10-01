@@ -32,6 +32,18 @@ export type NormalizedProduct = {
   /** Stable id within `source`, namespaced by domain so ids never collide across stores. */
   source_product_id: string;
   last_checked: string;
+  /** Present only when the source provided a brand id. Never invented. */
+  brand_id?: string | null;
+  /** Present only when the source provided these tags. Never invented. */
+  style_tags?: string[];
+  occasion_tags?: string[];
+  aesthetic_tags?: string[];
+  season_tags?: string[];
+  fit?: string | null;
+  silhouette?: string | null;
+  pattern?: string | null;
+  formality?: string | null;
+  image_urls?: string[];
 };
 
 export type BrandInfo = {

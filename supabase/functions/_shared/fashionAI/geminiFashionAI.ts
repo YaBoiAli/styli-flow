@@ -1,5 +1,12 @@
 import { parseFashionCriticResult } from './parseFashionCritic.ts';
 import { parseFashionRevisionResult } from './parseFashionRevision.ts';
+import {
+  generateGeminiContent,
+  geminiJsonGenerationConfig,
+  geminiModelsFromEnv,
+  inspectGeminiPayload,
+  normalizeImageMimeType,
+} from '../geminiResponse.ts';
 import type {
   FashionAIProvider,
   FashionCriticInput,
@@ -9,27 +16,25 @@ import type {
   FashionRevisionResult,
 } from './types.ts';
 
-const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
-const FALLBACK_GEMINI_MODEL = 'gemini-3.5-flash';
-
-function geminiModels(): string[] {
-  const primary = Deno.env.get('GEMINI_MODEL') || DEFAULT_GEMINI_MODEL;
-  const fallback = Deno.env.get('GEMINI_FALLBACK_MODEL') || FALLBACK_GEMINI_MODEL;
-  return [...new Set([primary, fallback])];
-}
-
 function mimeFromUrl(url: string): string {
-  const path = url.split('?')[0].toLowerCase();
-  if (path.endsWith('.png')) return 'image/png';
-  if (path.endsWith('.webp')) return 'image/webp';
-  if (path.endsWith('.gif')) return 'image/gif';
-  return 'image/jpeg';
+  return normalizeImageMimeType('', url) ?? 'image/jpeg';
 }
 
-function criticSystemPrompt(): string {
+function criticSystemPrompt(input: FashionCriticInput): string {
+  const footwearNote =
+    input.footwearPreference === 'none'
+      ? `
+Footwear was intentionally excluded. Do not treat the absence of shoes, sneakers, boots, sandals, heels, or any footwear as an issue or as incompleteness. Never recommend adding footwear.`
+      : '';
+  const complexionNote =
+    input.colorPreference === 'complexion'
+      ? `
+Color preference is complexion-first: judge whether clothing colors complement the user's complexion, especially on tops and outerwear. This is one factor, not the only one.`
+      : `
+Color preference is style-first: do not force complexion matching. Judge color as part of style, occasion, and outfit cohesion.`;
   return `You are an experienced personal stylist reviewing ONE complete outfit from product photos and metadata.
-Evaluate the outfit as a whole. Do not pick a different outfit. Do not invent or replace products.
-Do not infer sensitive personal attributes. Skin tone, if provided, is only for clothing color compatibility.
+Evaluate the COMPLETE outfit as a composition. Do not pick a different outfit. Do not invent or replace products.
+Do not infer sensitive personal attributes. Complexion, if provided, is only for clothing color compatibility.${footwearNote}${complexionNote}
 Return ONLY JSON:
 {
   "overall_assessment": "strong" | "acceptable" | "weak",
@@ -43,7 +48,17 @@ Return ONLY JSON:
   "recommendations": [string]
 }
 Use a selected product_id only when a specific piece is at fault. Scores are integers 1-10.
-Judge: style match, color harmony, proportion/silhouette, occasion, cohesion, and specific weak points.`;
+Do not call an outfit strong just because the pieces are individually fashionable.
+Judge:
+- Would these pieces realistically be worn together?
+- Is there a clear visual hierarchy (a main piece and supporting pieces)?
+- Do the silhouettes and proportions make sense together?
+- Does the outfit actually communicate the requested style, not just share a keyword?
+- Are any individual pieces dragging the outfit down?
+- Does it look generic or random rather than styled?
+- Would a stylist realistically recommend this combination?
+Also judge color harmony (including saturation, brightness, and where color sits on the body), proportion, pattern interaction, visual weight, aesthetic cohesion, and occasion.
+When a product includes a visual object, treat those attributes as observed. Do not invent conflicting colors, fits, patterns, or silhouettes.`;
 }
 
 function metadataForPrompt(input: FashionCriticInput) {
@@ -51,8 +66,10 @@ function metadataForPrompt(input: FashionCriticInput) {
     style: input.style,
     occasion: input.occasion,
     ...(input.skinTone ? { skin_tone: input.skinTone } : {}),
+    ...(input.colorPreference ? { color_preference: input.colorPreference } : {}),
     ...(input.measurements ? { measurements: input.measurements } : {}),
     ...(input.season ? { season: input.season } : {}),
+    ...(input.footwearPreference ? { footwear_preference: input.footwearPreference } : {}),
     products: input.products.map((product) => ({
       product_id: product.product_id,
       name: product.name,
@@ -68,6 +85,7 @@ function metadataForPrompt(input: FashionCriticInput) {
       aesthetic_tags: product.aesthetic_tags,
       occasion_tags: product.occasion_tags,
       image_available: product.image_available,
+      ...(product.visual ? { visual: product.visual } : {}),
     })),
   };
 }
@@ -90,13 +108,7 @@ function imageParts(products: FashionCriticProduct[]): Array<Record<string, unkn
 }
 
 function readGeminiText(payload: unknown): string {
-  const parts: Array<{ text?: unknown; thought?: unknown }> =
-    (payload as { candidates?: Array<{ content?: { parts?: Array<{ text?: unknown; thought?: unknown }> } }> })
-      ?.candidates?.[0]?.content?.parts ?? [];
-  return parts
-    .filter((part) => !part.thought && typeof part.text === 'string')
-    .map((part) => part.text as string)
-    .join('');
+  return inspectGeminiPayload(payload).text;
 }
 
 export class GeminiFashionAIProvider implements FashionAIProvider {
@@ -113,40 +125,21 @@ export class GeminiFashionAIProvider implements FashionAIProvider {
     const images = imageParts(input.products);
     if (!images.length) return null;
 
-    const body = JSON.stringify({
-      systemInstruction: { parts: [{ text: criticSystemPrompt() }] },
+    const http = await generateGeminiContent({
+      apiKey,
+      models: geminiModelsFromEnv(Deno.env),
+      systemInstruction: { parts: [{ text: criticSystemPrompt(input) }] },
       contents: [
         {
           role: 'user',
           parts: [{ text: JSON.stringify(metadataForPrompt(input)) }, ...images],
         },
       ],
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: 'application/json',
-      },
+      generationConfig: geminiJsonGenerationConfig(0.2),
     });
 
-    let response: Response | null = null;
-    for (const model of geminiModels()) {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: 'POST',
-          headers: {
-            'x-goog-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
-          body,
-        },
-      );
-      if (![404, 429, 500, 503].includes(response.status)) break;
-      await response.body?.cancel();
-    }
-
-    if (!response?.ok) return null;
-    const payload = await response.json();
-    const content = readGeminiText(payload);
+    if (!http.ok) return null;
+    const content = readGeminiText(http.payload);
     if (!content.trim()) return null;
     return parseFashionCriticResult(
       content,
@@ -160,56 +153,52 @@ export class GeminiFashionAIProvider implements FashionAIProvider {
 
     const allowedIds = new Set(input.catalog.map((product) => product.product_id));
     const images = imageParts(input.currentOutfit);
-    const body = JSON.stringify({
-      systemInstruction: { parts: [{ text: revisionSystemPrompt() }] },
+    const http = await generateGeminiContent({
+      apiKey,
+      models: geminiModelsFromEnv(Deno.env),
+      systemInstruction: { parts: [{ text: revisionSystemPrompt(input) }] },
       contents: [
         {
           role: 'user',
           parts: [{ text: JSON.stringify(revisionUserPayload(input)) }, ...images],
         },
       ],
-      generationConfig: {
-        temperature: 0.3,
-        responseMimeType: 'application/json',
-      },
+      generationConfig: geminiJsonGenerationConfig(0.3),
     });
 
-    let response: Response | null = null;
-    for (const model of geminiModels()) {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: 'POST',
-          headers: {
-            'x-goog-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
-          body,
-        },
-      );
-      if (![404, 429, 500, 503].includes(response.status)) break;
-      await response.body?.cancel();
-    }
-
-    if (!response?.ok) return null;
-    const payload = await response.json();
-    const content = readGeminiText(payload);
+    if (!http.ok) return null;
+    const content = readGeminiText(http.payload);
     if (!content.trim()) return null;
-    return parseFashionRevisionResult(content, allowedIds);
+    return parseFashionRevisionResult(content, allowedIds, {
+      requireShoes: input.footwearPreference !== 'none',
+    });
   }
 }
 
-function revisionSystemPrompt(): string {
+function revisionSystemPrompt(input: FashionRevisionInput): string {
+  const includeShoes = input.footwearPreference !== 'none';
+  const coreSlots = includeShoes
+    ? 'Include exactly one top, one bottom, and one shoes. Optional outerwear/accessory only if they stay valid.'
+    : 'Include exactly one top and one bottom. Footwear was intentionally excluded — do not add shoes, sneakers, boots, sandals, heels, or any footwear, even if the critic mentions it. Optional outerwear/accessory only if they stay valid.';
+  const complexion =
+    input.colorPreference === 'complexion'
+      ? 'If the critic says a color does not complement the user\'s complexion, replace that piece (usually the top or outerwear). Complexion is one factor, not the only one.'
+      : 'Do not change pieces only to force complexion matching.';
   return `You are revising ONE existing outfit. Preserve as much of the current outfit as possible. Change only the pieces necessary to address the critic's problems.
+If the critic names a weak piece, replace that piece from the catalog. You may replace more than one piece if needed to restore cohesion, but prefer the smallest change.
+If color is the problem, change the conflicting piece. If proportion, silhouette, or visual weight is the problem, change that silhouette. If two pieces both have high visual intensity, swap one for a quieter alternative from the catalog. If occasion is the problem, replace the formality mismatch. If the pants make the outfit feel disconnected, replace the pants.
+${complexion}
 Use only product_id values from the provided candidate catalog. Never invent products or IDs.
-If color is the problem, change the conflicting piece. If proportion is the problem, change that silhouette. If occasion is the problem, replace the formality mismatch. Prefer the smallest change.
+When products include a visual object, use those attributes. Do not invent conflicting colors, fits, patterns, or silhouettes.
+Ignore any critic recommendation to add footwear when footwear was intentionally excluded.
+Never violate budget, gender, category requirements, availability, brand restrictions, or footwear preference.
 Return ONLY JSON:
 {
   "items": [{ "product_id": string, "reason": string }],
   "outfit_name": string,
   "styling_tip": string
 }
-Include exactly one top, one bottom, and one shoes. Optional outerwear/accessory only if they stay valid.`;
+${coreSlots}`;
 }
 
 function revisionUserPayload(input: FashionRevisionInput) {
@@ -217,8 +206,10 @@ function revisionUserPayload(input: FashionRevisionInput) {
     style: input.style,
     occasion: input.occasion,
     ...(input.skinTone ? { skin_tone: input.skinTone } : {}),
+    ...(input.colorPreference ? { color_preference: input.colorPreference } : {}),
     ...(input.measurements ? { measurements: input.measurements } : {}),
     ...(input.season ? { season: input.season } : {}),
+    ...(input.footwearPreference ? { footwear_preference: input.footwearPreference } : {}),
     current_outfit: input.currentOutfit.map((product) => ({
       product_id: product.product_id,
       name: product.name,
@@ -234,6 +225,7 @@ function revisionUserPayload(input: FashionRevisionInput) {
       aesthetic_tags: product.aesthetic_tags,
       occasion_tags: product.occasion_tags,
       image_available: product.image_available,
+      ...(product.visual ? { visual: product.visual } : {}),
     })),
     critic: input.critic,
     catalog: input.catalog,

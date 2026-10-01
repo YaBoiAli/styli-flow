@@ -45,6 +45,7 @@ export default function BrandsScreen() {
     selectedStyle,
     selectedOccasion,
     selectedBudget,
+    footwearPreference,
     inspirationSources,
     selectedBrands,
     brandRequests,
@@ -148,6 +149,7 @@ export default function BrandsScreen() {
         inspiration_count: inspirationSources.length,
         brand_count: selectedBrands.length,
         requested_brand_count: brandRequests.length,
+        footwear_preference: footwearPreference,
       });
       router.push('/generation');
     } finally {

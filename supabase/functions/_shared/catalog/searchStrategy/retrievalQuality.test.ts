@@ -68,7 +68,12 @@ assert(hardFilterReason(reasonableHoodie, { style: 'Streetwear', category: 'top'
 assert(hardFilterReason(luxuryHoodie, { style: 'Streetwear', category: 'top' }) === null, 'budget: no budget does not hard-filter');
 assert(hardFilterReason(luxuryShoes, { style: 'Y2K', category: 'shoes', budget: 150, shoeBudget: 120 }) === 'over_budget', 'budget: shoe cap excludes luxury shoes');
 assert(budgetFitScore(luxuryHoodie, { style: 'Streetwear' }) < budgetFitScore(reasonableHoodie, { style: 'Streetwear' }), 'budget: no-budget ranks luxury below reasonable');
-assert(budgetFitScore({ price: Number.NaN, category: 'top' }, { budget: 150 }) === 55, 'budget: missing price does not crash');
+assert(budgetFitScore({ price: Number.NaN, category: 'top' }, { budget: 150 }) === 50, 'budget: missing price is uncertain, not positive');
+assert(
+  budgetFitScore({ price: 20, category: 'top' }, { budget: 150 }) ===
+    budgetFitScore({ price: 50, category: 'top' }, { budget: 150 }),
+  'budget: in-budget items are equally feasible; cheaper is not better',
+);
 assert(hardFilterReason(product({ product_name: 'Euro Tee', currency: 'EUR' }), { category: 'top', budget: 150 }) === 'unsupported_currency', 'budget: non-USD still rejected');
 
 const womenHeels = product({

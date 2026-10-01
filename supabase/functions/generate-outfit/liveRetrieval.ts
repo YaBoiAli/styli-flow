@@ -8,6 +8,12 @@ import type {
 import type { NormalizedProduct, ProductCategory, ProductGender } from '../_shared/catalog/types.ts';
 import type { CatalogProduct, GenderPreference } from './catalog.ts';
 import { matchesGenderPreference } from './catalog.ts';
+import {
+  type Channel3Reason,
+  type MetadataPreservationStats,
+  emptyMetadataStats,
+  mapLegacyChannel3Reason,
+} from './genTrace.ts';
 
 export const LIVE_REQUIRED_CATEGORIES: ProductCategory[] = ['top', 'bottom', 'shoes'];
 
@@ -25,13 +31,15 @@ export type LiveRetrievalSource = 'channel3_live' | 'hybrid' | 'catalog_fallback
 export type LiveRetrieval = {
   attempted: boolean;
   ok: boolean;
-  reason: string | null;
+  reason: Channel3Reason | null;
   products: CatalogProduct[];
   fetched: number;
   queryCount: number;
   usable: number;
   categories: Record<ProductCategory, number>;
   unresolvedBrands: string[];
+  timedOut: boolean;
+  metadata: MetadataPreservationStats;
 };
 
 export function memoizeSearchBackend(backend: StrategySearchBackend): StrategySearchBackend {
@@ -64,32 +72,55 @@ export function memoizeSearchBackend(backend: StrategySearchBackend): StrategySe
 }
 
 export function catalogProductFromNormalized(product: NormalizedProduct): CatalogProduct {
+  const style_tags = [...(product.style_tags ?? [])];
+  const occasion_tags = [...(product.occasion_tags ?? [])];
+  const aesthetic_tags = [...(product.aesthetic_tags ?? [])];
+  const season_tags = [...(product.season_tags ?? [])];
+  const colors = [...(product.colors ?? [])];
+  const sizes = [...(product.sizes ?? [])];
   return {
     id: product.source_product_id,
     name: product.product_name,
     brand: product.brand,
-    brand_id: null,
+    brand_id: product.brand_id ?? null,
     category: product.category,
     subcategory: product.subcategory,
     price: product.price,
     currency: product.currency,
-    color: product.colors[0] ?? 'Assorted',
-    colors: product.colors,
+    color: colors[0] ?? '',
+    colors,
     material: product.material,
     description: product.description,
     gender: product.gender,
     image_url: product.image_url,
     purchase_url: product.product_url,
-    style_tags: [],
-    occasion_tags: [],
-    aesthetic_tags: [],
-    season_tags: [],
-    fit: null,
-    silhouette: null,
-    pattern: null,
-    formality: null,
+    style_tags,
+    occasion_tags,
+    aesthetic_tags,
+    season_tags,
+    fit: product.fit ?? null,
+    silhouette: product.silhouette ?? null,
+    pattern: product.pattern ?? null,
+    formality: product.formality ?? null,
     source: product.source,
+    sizes,
+    availability: product.availability,
+    source_product_id: product.source_product_id,
+    image_urls: product.image_urls?.length ? [...product.image_urls] : undefined,
   };
+}
+
+export function accumulateMetadataStats(
+  stats: MetadataPreservationStats,
+  incoming: NormalizedProduct,
+  outgoing: CatalogProduct,
+): void {
+  stats.incoming_style_tags += incoming.style_tags?.length ?? 0;
+  stats.preserved_style_tags += outgoing.style_tags.length;
+  stats.incoming_colors += incoming.colors.length;
+  stats.preserved_colors += outgoing.colors.length;
+  stats.incoming_sizes += incoming.sizes.length;
+  stats.preserved_sizes += outgoing.sizes?.length ?? 0;
 }
 
 export function countByCategory(products: CatalogProduct[]): Record<ProductCategory, number> {
@@ -118,6 +149,45 @@ export function toSearchGender(gender: GenderPreference): ProductGender | undefi
   return gender === 'men' || gender === 'women' ? gender : undefined;
 }
 
+export function deriveChannel3Reason(input: {
+  products: CatalogProduct[];
+  fetched: number;
+  timedOut: boolean;
+  hadError: boolean;
+  required: ProductCategory[];
+}): Channel3Reason {
+  const missing = missingRequiredCategories(input.products, input.required);
+  if (!input.products.length) {
+    if (input.timedOut) return 'request_timeout';
+    if (input.hadError) return 'request_error';
+    if (input.fetched > 0) return 'normalization_failed';
+    return 'empty_results';
+  }
+  if (missing.length) {
+    if (input.timedOut || input.hadError) return 'partial_results';
+    return 'insufficient_categories';
+  }
+  return 'successful';
+}
+
+function emptyCategoryResult(category: ProductCategory): SearchStrategyResult {
+  return {
+    intent: { category },
+    queries: [],
+    unresolvedBrands: [],
+    resolvedBrands: [],
+    fetched: 0,
+    duplicatesRemoved: 0,
+    hardFiltered: 0,
+    filterReasons: {},
+    candidates: [],
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function retrieveLiveChannel3Catalog(input: {
   backend: StrategySearchBackend;
   style: string;
@@ -140,122 +210,124 @@ export async function retrieveLiveChannel3Catalog(input: {
   };
   const timeoutMs = input.timeoutMs ?? LIVE_RETRIEVAL_TIMEOUT_MS;
 
-  try {
-    console.log(
-      `[CHANNEL3_LIVE] starting retrieval ${JSON.stringify({
-        category_count: categories.length,
-        brand_count: input.brands.length,
-        query_budget: limits.maxQueries,
-      })}`,
-    );
-    const results = await withTimeout(
-      Promise.all(
-        categories.map((category) =>
-          runSearchStrategy(
-            {
-              style: input.style,
-              occasion: input.occasion,
-              category,
-              gender: toSearchGender(input.gender),
-              budget: input.budget,
-              shoeBudget: input.shoeBudget,
-              brands: input.brands,
-              websites: input.websites,
-            } satisfies SearchIntent,
-            backend,
-            limits,
-          ).catch((): SearchStrategyResult => ({
-            intent: { category },
-            queries: [],
-            unresolvedBrands: [],
-            resolvedBrands: [],
-            fetched: 0,
-            duplicatesRemoved: 0,
-            hardFiltered: 0,
-            filterReasons: { search_failed: 1 },
-            candidates: [],
-          })),
-        ),
-      ),
-      timeoutMs,
-    );
+  console.log(
+    `[CHANNEL3_LIVE] starting retrieval ${JSON.stringify({
+      category_count: categories.length,
+      brand_count: input.brands.length,
+      query_budget: limits.maxQueries,
+    })}`,
+  );
 
-    const merged = new Map<string, CatalogProduct>();
-    let fetched = 0;
-    let queryCount = 0;
-    const unresolved = new Set<string>();
-    for (const result of results) {
-      fetched += result.fetched;
-      queryCount += result.queries.length;
-      for (const name of result.unresolvedBrands) unresolved.add(name);
-      for (const candidate of result.candidates) {
-        const product = catalogProductFromNormalized(candidate.product);
-        if (!matchesGenderPreference(product, input.gender)) continue;
-        merged.set(product.id, product);
-      }
+  type Slot = SearchStrategyResult | 'pending' | 'error';
+  const slots: Slot[] = categories.map(() => 'pending');
+  const work = categories.map((category, index) =>
+    runSearchStrategy(
+      {
+        style: input.style,
+        occasion: input.occasion,
+        category,
+        gender: toSearchGender(input.gender),
+        budget: input.budget,
+        shoeBudget: input.shoeBudget,
+        brands: input.brands,
+        websites: input.websites,
+      } satisfies SearchIntent,
+      backend,
+      limits,
+    )
+      .then((result) => {
+        slots[index] = result;
+      })
+      .catch(() => {
+        slots[index] = 'error';
+      }),
+  );
+
+  await Promise.race([Promise.all(work), sleep(timeoutMs)]);
+
+  let timedOut = false;
+  let hadError = false;
+  const results: SearchStrategyResult[] = [];
+  for (let index = 0; index < categories.length; index += 1) {
+    const slot = slots[index];
+    if (slot === 'pending') {
+      timedOut = true;
+      results.push(emptyCategoryResult(categories[index]));
+      continue;
     }
-
-    const products = [...merged.values()];
-    const complete = {
-      attempted: true,
-      ok: products.length > 0,
-      reason: products.length ? null : 'empty',
-      products,
-      fetched,
-      queryCount,
-      usable: products.length,
-      categories: countByCategory(products),
-      unresolvedBrands: [...unresolved],
-    };
-    console.log(
-      `[CHANNEL3_LIVE] retrieval complete ${JSON.stringify({
-        used: complete.ok,
-        query_count: complete.queryCount,
-        fetched: complete.fetched,
-        usable: complete.usable,
-        categories: complete.categories,
-        unresolved_brand_count: complete.unresolvedBrands.length,
-        reason: complete.reason,
-      })}`,
-    );
-    return complete;
-  } catch (err) {
-    const reason = err instanceof Error && err.message === 'timeout' ? 'timeout' : 'error';
-    console.log(
-      `[CHANNEL3_LIVE] retrieval complete ${JSON.stringify({
-        used: false,
-        query_count: 0,
-        fetched: 0,
-        usable: 0,
-        reason,
-      })}`,
-    );
-    return {
-      attempted: true,
-      ok: false,
-      reason,
-      products: [],
-      fetched: 0,
-      queryCount: 0,
-      usable: 0,
-      categories: countByCategory([]),
-      unresolvedBrands: [],
-    };
+    if (slot === 'error') {
+      hadError = true;
+      results.push(emptyCategoryResult(categories[index]));
+      continue;
+    }
+    results.push(slot);
   }
+
+  const merged = new Map<string, CatalogProduct>();
+  const metadata = emptyMetadataStats();
+  let fetched = 0;
+  let queryCount = 0;
+  const unresolved = new Set<string>();
+  for (const result of results) {
+    fetched += result.fetched;
+    queryCount += result.queries.length;
+    for (const name of result.unresolvedBrands) unresolved.add(name);
+    for (const candidate of result.candidates) {
+      const product = catalogProductFromNormalized(candidate.product);
+      accumulateMetadataStats(metadata, candidate.product, product);
+      if (!matchesGenderPreference(product, input.gender)) continue;
+      merged.set(product.id, product);
+    }
+  }
+
+  const products = [...merged.values()];
+  const reason = deriveChannel3Reason({
+    products,
+    fetched,
+    timedOut,
+    hadError,
+    required: categories,
+  });
+  const complete: LiveRetrieval = {
+    attempted: true,
+    ok: products.length > 0,
+    reason,
+    products,
+    fetched,
+    queryCount,
+    usable: products.length,
+    categories: countByCategory(products),
+    unresolvedBrands: [...unresolved],
+    timedOut,
+    metadata,
+  };
+  console.log(
+    `[CHANNEL3_LIVE] retrieval complete ${JSON.stringify({
+      used: complete.ok,
+      query_count: complete.queryCount,
+      fetched: complete.fetched,
+      usable: complete.usable,
+      categories: complete.categories,
+      unresolved_brand_count: complete.unresolvedBrands.length,
+      reason: complete.reason,
+      timed_out: complete.timedOut,
+    })}`,
+  );
+  return complete;
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timeout')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err);
-      },
-    );
-  });
+export function liveRetrievalFromError(reason: string): LiveRetrieval {
+  return {
+    attempted: true,
+    ok: false,
+    reason: mapLegacyChannel3Reason(reason),
+    products: [],
+    fetched: 0,
+    queryCount: 0,
+    usable: 0,
+    categories: countByCategory([]),
+    unresolvedBrands: [],
+    timedOut: reason === 'timeout' || reason === 'request_timeout',
+    metadata: emptyMetadataStats(),
+  };
 }

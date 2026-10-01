@@ -27,7 +27,7 @@ export function rescuePriceCeiling(cap: number): number {
 }
 
 export function budgetFitScore(product: Pick<NormalizedProduct, 'price' | 'category'>, intent: SearchIntent): number {
-  if (!hasUsablePrice(product.price)) return 55;
+  if (!hasUsablePrice(product.price)) return 50;
   const cap = categoryPriceCeiling({
     category: product.category,
     budget: intent.budget,
@@ -40,8 +40,5 @@ export function budgetFitScore(product: Pick<NormalizedProduct, 'price' | 'categ
     return 10;
   }
   if (product.price > cap) return 0;
-  const ratio = product.price / cap;
-  if (ratio <= 0.5) return 100;
-  if (ratio <= 0.8) return 80;
-  return 60;
+  return 80;
 }

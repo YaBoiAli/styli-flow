@@ -21,6 +21,15 @@ import {
   STYLE_SILHOUETTE,
   styleAliasTags,
 } from './fashionSignals.ts';
+import {
+  colorPlacementWeight,
+  isNeutralColorFamily,
+  resolvedFit,
+  resolvedPattern,
+  resolvedSilhouette,
+  visualIsUsable,
+  type VisualAttributes,
+} from './visualAttributes.ts';
 
 /** CatalogProduct from generate-outfit/catalog.ts satisfies this view. */
 export type OutfitScoreItem = {
@@ -41,6 +50,7 @@ export type OutfitScoreItem = {
   silhouette?: string | null;
   pattern?: string | null;
   formality?: string | null;
+  visual_attributes?: VisualAttributes | null;
 };
 
 /**
@@ -54,6 +64,13 @@ export type OutfitScoringContext = {
   measurements?: Record<string, number | string> | null;
   /** Test override. Defaults to currentSeason(). */
   season?: SeasonAttr;
+  /** Absent defaults to include. */
+  footwearPreference?: 'include' | 'none';
+  /**
+   * `complexion` uses the user's complexion as one color factor.
+   * Default `style_first` keeps general styling (does not force complexion matching).
+   */
+  colorPreference?: 'complexion' | 'style_first';
 };
 
 export type OutfitScoreBreakdown = {
@@ -80,13 +97,24 @@ export const OUTFIT_SCORE_WEIGHTS = {
   proportion: 0.2,
   skinTone: 0.1,
   occasion: 0.1,
-  fit: 0.1,
+  fit: 0.05,
   season: 0.05,
-  cohesion: 0.05,
+  cohesion: 0.1,
 } as const;
 
+/** Inapplicable optional dimension (complexion off, no measurements). Not unknown evidence. */
 const NEUTRAL_DIMENSION = 70;
-const LOUD_PATTERNS = new Set(['graphic', 'floral', 'plaid', 'camo', 'animal', 'logo']);
+/** Missing product metadata. Neither a match nor a miss. */
+export const UNCERTAIN_DIMENSION = 50;
+const LOUD_PATTERNS = new Set(['graphic', 'floral', 'plaid', 'camo', 'animal', 'logo', 'abstract']);
+const INTENSITY_FRIENDLY_STYLES = new Set([
+  'streetwear',
+  'elevated_streetwear',
+  'elevated streetwear',
+  'y2k',
+  'grunge',
+  'runway',
+]);
 const VOLUME_FRIENDLY_STYLES = new Set([
   'streetwear',
   'elevated_streetwear',
@@ -201,8 +229,63 @@ function colorText(item: OutfitScoreItem): string {
     .toLowerCase();
 }
 
-export function extractColorTokens(item: OutfitScoreItem): ColorToken[] {
-  const text = colorText(item);
+function tokenFromParts(params: {
+  label: string;
+  family?: ColorFamily;
+  kind?: 'neutral' | 'chromatic';
+  saturated?: boolean;
+}): ColorToken {
+  return {
+    label: params.label,
+    kind: params.kind ?? (params.family ? 'chromatic' : 'neutral'),
+    family: params.family,
+    saturated: Boolean(params.saturated),
+  };
+}
+
+function familyFromVisual(family: string | null | undefined): ColorFamily | undefined {
+  if (!family || isNeutralColorFamily(family) || family === 'navy') return undefined;
+  if (family === 'gold') return 'yellow';
+  if (
+    family === 'red' ||
+    family === 'orange' ||
+    family === 'yellow' ||
+    family === 'green' ||
+    family === 'blue' ||
+    family === 'purple' ||
+    family === 'pink'
+  ) {
+    return family;
+  }
+  return undefined;
+}
+
+function tokensFromVisual(item: OutfitScoreItem): ColorToken[] | null {
+  const visual = item.visual_attributes;
+  if (!visualIsUsable(item) || !visual) return null;
+  if (!visual.primary_color && !visual.color_family) return null;
+
+  const saturated =
+    visual.saturation === 'high' ||
+    /\bneon\b|\belectric\b|\bbright\b/.test(visual.primary_color ?? '');
+  const family = familyFromVisual(visual.color_family);
+  const kind: 'neutral' | 'chromatic' =
+    family && visual.color_family !== 'navy' ? 'chromatic' : 'neutral';
+  const label = (visual.primary_color ?? visual.color_family ?? 'color').toLowerCase();
+  const found: ColorToken[] = [
+    tokenFromParts({ label, family, kind, saturated: kind === 'chromatic' && saturated }),
+  ];
+  const seen = new Set([label]);
+  for (const extra of visual.secondary_colors) {
+    if (seen.has(extra)) continue;
+    seen.add(extra);
+    const fromLexicon = tokensFromLexicon(extra);
+    if (fromLexicon.length) found.push(...fromLexicon);
+  }
+  return found;
+}
+
+function tokensFromLexicon(text: string): ColorToken[] {
   const found: ColorToken[] = [];
   const seen = new Set<string>();
   const neon = /\bneon\b|\belectric\b/.test(text);
@@ -218,6 +301,12 @@ export function extractColorTokens(item: OutfitScoreItem): ColorToken[] {
     });
   }
   return found;
+}
+
+export function extractColorTokens(item: OutfitScoreItem): ColorToken[] {
+  const visualTokens = tokensFromVisual(item);
+  if (visualTokens?.length) return visualTokens;
+  return tokensFromLexicon(colorText(item));
 }
 
 function complementary(a: ColorFamily, b: ColorFamily): boolean {
@@ -260,25 +349,46 @@ function requestedStyleFriendlyNarrow(style: string): boolean {
 
 function itemStyleAffinity(item: OutfitScoreItem, style: string): number {
   const aliases = styleKeys(style);
-  const tags = [...(item.style_tags ?? []), ...(item.aesthetic_tags ?? [])].map(attrKey);
+  const visualAesthetics = visualIsUsable(item) ? (item.visual_attributes?.aesthetics ?? []) : [];
+  const tags = [
+    ...(item.style_tags ?? []),
+    ...(item.aesthetic_tags ?? []),
+    ...visualAesthetics,
+  ].map(attrKey);
   const aliasKeys = aliases.map(attrKey);
-  let points = 40;
-  if (tags.some((tag) => aliasKeys.includes(tag))) points += 30;
-  const fitKey = item.fit && item.fit !== 'unknown' ? item.fit : null;
-  const silKey = item.silhouette && item.silhouette !== 'unknown' ? item.silhouette : null;
+  let evidence = 0;
+  let hasEvidence = false;
+  if (tags.some((tag) => aliasKeys.includes(tag) || (tag === 'minimal' && aliasKeys.includes('minimalist')))) {
+    evidence += 30;
+    hasEvidence = true;
+  }
+  const fitKey = resolvedFit(item);
+  const silKey = resolvedSilhouette(item);
   for (const alias of aliases) {
     const key = attrKey(alias);
-    if (fitKey && (STYLE_FIT[alias] ?? STYLE_FIT[key] ?? []).includes(fitKey)) points += 10;
+    if (fitKey && (STYLE_FIT[alias] ?? STYLE_FIT[key] ?? []).includes(fitKey)) {
+      evidence += 10;
+      hasEvidence = true;
+    }
     if (silKey && (STYLE_SILHOUETTE[alias] ?? STYLE_SILHOUETTE[key] ?? []).includes(silKey)) {
-      points += 10;
+      evidence += 10;
+      hasEvidence = true;
     }
   }
   const text = itemText(item);
   for (const [index, alias] of aliases.entries()) {
     const hits = keywordHits(text, STYLE_KEYWORDS[alias] ?? STYLE_KEYWORDS[attrKey(alias)] ?? []);
-    points += Math.min(index === 0 ? hits * 6 : hits * 3, 18);
+    if (hits) {
+      evidence += Math.min(index === 0 ? hits * 6 : hits * 3, 18);
+      hasEvidence = true;
+    }
   }
-  return clamp100(points);
+  if (!hasEvidence) return UNCERTAIN_DIMENSION;
+  return clamp100(UNCERTAIN_DIMENSION + evidence);
+}
+
+export function productStyleAffinity(item: OutfitScoreItem, style: string): number {
+  return itemStyleAffinity(item, style);
 }
 
 const STYLE_CLUSTERS = {
@@ -288,7 +398,8 @@ const STYLE_CLUSTERS = {
 } as const;
 
 function itemCluster(item: OutfitScoreItem): keyof typeof STYLE_CLUSTERS | null {
-  const tags = [...(item.style_tags ?? []), ...(item.aesthetic_tags ?? [])].map(attrKey);
+  const visualAesthetics = visualIsUsable(item) ? (item.visual_attributes?.aesthetics ?? []) : [];
+  const tags = [...(item.style_tags ?? []), ...(item.aesthetic_tags ?? []), ...visualAesthetics].map(attrKey);
   const text = itemText(item);
   if (tags.some((tag) => (STYLE_CLUSTERS.y2k as readonly string[]).includes(tag)) || keywordHits(text, STYLE_KEYWORDS.y2k)) {
     return 'y2k';
@@ -306,6 +417,7 @@ function scoreStyle(items: OutfitScoreItem[], style: string): DimensionResult {
   const affinities = items.map((item) => itemStyleAffinity(item, style));
   const average = affinities.reduce((sum, value) => sum + value, 0) / affinities.length;
   const best = Math.max(...affinities);
+  const worst = Math.min(...affinities);
   // Soft: one strong anchor can carry a weakly tagged set.
   let score = average * 0.7 + best * 0.3;
 
@@ -313,7 +425,7 @@ function scoreStyle(items: OutfitScoreItem[], style: string): DimensionResult {
   const requested = attrKey(style);
   const runwayMix = requested === 'runway';
   if (clusters.has('street') && clusters.has('prep') && !runwayMix) {
-    score -= 18;
+    score -= 22;
     issues.push('The outfit has weak visual connection to the requested style.');
     suggestions.push('Keep street and tailored pieces from competing — pick one direction.');
   }
@@ -321,16 +433,33 @@ function scoreStyle(items: OutfitScoreItem[], style: string): DimensionResult {
     issues.push('The outfit has weak visual connection to the requested style.');
     suggestions.push('Lean on pieces whose tags or cuts match the requested vibe.');
   }
+  if (best < 58 && average < 55) {
+    score -= 12;
+    issues.push('The pieces do not read as one intentional outfit.');
+    suggestions.push('Choose a main piece and support it instead of averaging unrelated items.');
+  }
+  if (best >= 70 && worst >= 48) score += 6;
 
   return { score: clamp100(score), issues: unique(issues), suggestions: unique(suggestions) };
 }
 
-function scoreColor(items: OutfitScoreItem[], style: string): DimensionResult {
+function requestedStyleFriendlyIntensity(style: string): boolean {
+  const keys = styleKeys(style).map((tag) => attrKey(tag));
+  return keys.some(
+    (key) => INTENSITY_FRIENDLY_STYLES.has(key) || INTENSITY_FRIENDLY_STYLES.has(key.replace(/_/g, ' ')),
+  );
+}
+
+function scoreColor(
+  items: OutfitScoreItem[],
+  style: string,
+  footwearPreference: 'include' | 'none' | undefined,
+): DimensionResult {
   const issues: string[] = [];
   const suggestions: string[] = [];
   const tokens = items.flatMap(extractColorTokens);
   if (!tokens.length) {
-    return { score: NEUTRAL_DIMENSION, issues, suggestions };
+    return { score: UNCERTAIN_DIMENSION, issues, suggestions };
   }
 
   const neutrals = tokens.filter((token) => token.kind === 'neutral');
@@ -370,52 +499,197 @@ function scoreColor(items: OutfitScoreItem[], style: string): DimensionResult {
     score = Math.max(score, 90);
   }
 
+  const visualItems = items.filter(visualIsUsable);
+  if (visualItems.length) {
+    const saturations = visualItems
+      .map((item) => item.visual_attributes?.saturation)
+      .filter((value): value is NonNullable<typeof value> => Boolean(value));
+    const brightnesses = visualItems
+      .map((item) => item.visual_attributes?.brightness)
+      .filter((value): value is NonNullable<typeof value> => Boolean(value));
+    const highSatNearFace = visualItems.filter((item) => {
+      const weight = colorPlacementWeight(item.category, footwearPreference);
+      return weight >= 0.7 && item.visual_attributes?.saturation === 'high';
+    }).length;
+    const highSatCount = saturations.filter((value) => value === 'high').length;
+    if (highSatCount >= 2 && !boldOk) {
+      score -= 10;
+      issues.push('Color palette has too many competing saturated colors.');
+      suggestions.push('Keep one saturated piece near the face and mute the rest.');
+    } else if (highSatNearFace >= 1 && !boldOk) {
+      score -= 8;
+    } else if (highSatNearFace === 1 && saturations.some((value) => value === 'low') && boldOk) {
+      score += 4;
+    }
+    if (brightnesses.includes('dark') && brightnesses.includes('light') && highSatCount >= 2 && !boldOk) {
+      score -= 6;
+    }
+    const shoeItem = items.find((item) => item.category === 'shoes');
+    if (footwearPreference !== 'none' && shoeItem && visualIsUsable(shoeItem)) {
+      const shoeChromatic = extractColorTokens(shoeItem).some((token) => token.kind === 'chromatic');
+      const coreFamilies = items
+        .filter((item) => item.category !== 'shoes')
+        .flatMap(extractColorTokens)
+        .filter((token) => token.kind === 'chromatic');
+      if (shoeChromatic && new Set(coreFamilies.map((token) => token.family)).size <= 1) {
+        score += 3;
+      }
+    }
+  }
+
   return { score: clamp100(score), issues: unique(issues), suggestions: unique(suggestions) };
 }
+
+const COMPLEXION_DEPTH: Record<SkinTonePreference, 'light' | 'mid' | 'deep'> = {
+  fair: 'light',
+  light: 'light',
+  medium: 'mid',
+  tan: 'mid',
+  deep: 'deep',
+  rich: 'deep',
+};
 
 function scoreSkinTone(
   items: OutfitScoreItem[],
   skinTone: SkinTonePreference | null | undefined,
+  footwearPreference: 'include' | 'none' | undefined,
+  colorPreference: 'complexion' | 'style_first' | undefined,
 ): DimensionResult {
-  if (!skinTone) {
+  if (!skinTone || colorPreference !== 'complexion') {
     return { score: NEUTRAL_DIMENSION, issues: [], suggestions: [] };
   }
   const guide = SKIN_TONE_COLORS[skinTone];
-  const tokens = items.flatMap(extractColorTokens);
-  if (!tokens.length) {
-    return { score: NEUTRAL_DIMENSION, issues: [], suggestions: [] };
+  const depth = COMPLEXION_DEPTH[skinTone];
+  const scored = items.flatMap((item) => {
+    const weight = colorPlacementWeight(item.category, footwearPreference);
+    if (weight <= 0) return [];
+    const visual = visualIsUsable(item) ? item.visual_attributes : null;
+    const labels = [
+      ...extractColorTokens(item).map((token) => token.label),
+      ...(visual ? skinToneVisualAliases(visual) : []),
+    ];
+    if (!labels.length) return [];
+    return [{ item, weight, visual, labels }];
+  });
+  if (!scored.length) {
+    return { score: UNCERTAIN_DIMENSION, issues: [], suggestions: [] };
   }
 
-  const labels = tokens.map((token) => token.label);
-  const preferHits = labels.filter((label) =>
-    guide.prefer.some((prefer) => label.includes(prefer) || prefer.includes(label)),
-  ).length;
-  const avoidHits = labels.filter((label) =>
-    guide.avoid.some((avoid) => label.includes(avoid) || avoid.includes(label)),
-  ).length;
-  const chromatic = tokens.filter((token) => token.kind === 'chromatic');
-  const avoidDominant = avoidHits > preferHits && avoidHits >= 2;
-  const preferDominant = preferHits >= avoidHits;
+  let weighted = 0;
+  let totalWeight = 0;
+  let avoidUpper = 0;
+  let preferUpper = 0;
+  for (const entry of scored) {
+    const joined = entry.labels.join(' ');
+    const preferHits = entry.labels.filter((label) =>
+      guide.prefer.some((prefer) => label.includes(prefer) || prefer.includes(label)),
+    ).length;
+    const avoidHits = entry.labels.filter((label) =>
+      guide.avoid.some((avoid) => label.includes(avoid) || avoid.includes(label)),
+    ).length;
+    let local = 70;
+    if (preferHits > 0) local += Math.min(16, preferHits * 8);
+    if (avoidHits > 0) local -= Math.min(22, avoidHits * 12);
 
-  let score = 72;
-  if (preferDominant && preferHits > 0) score += Math.min(18, preferHits * 6);
-  if (avoidHits === 1 && preferHits >= 1) score -= 6;
-  if (avoidDominant) score -= 16;
-  if (chromatic.length === 0 && preferHits > 0) score += 6;
+    const sat = entry.visual?.saturation ?? null;
+    const brightness = entry.visual?.brightness ?? null;
+    const family = entry.visual?.color_family ?? null;
+    const wash = complexionWashesOut(depth, joined, sat, brightness, family);
+    const contrast = complexionUsefulContrast(depth, joined, brightness, family);
+    if (wash) local -= 14;
+    else if (contrast && avoidHits === 0) local += 8;
+    if (sat === 'high' && avoidHits > 0) local -= 6;
+    if (sat === 'low' && preferHits > 0 && !wash) local += 3;
+
+    weighted += clamp100(local) * entry.weight;
+    totalWeight += entry.weight;
+    if (entry.item.category === 'top' || entry.item.category === 'outerwear') {
+      if (avoidHits > 0 || wash) avoidUpper += entry.weight;
+      if (preferHits > 0 && avoidHits === 0) preferUpper += entry.weight;
+    }
+  }
+
+  let score = totalWeight > 0 ? weighted / totalWeight : NEUTRAL_DIMENSION;
+  if (avoidUpper > preferUpper && avoidUpper >= 0.8) score -= 8;
+  if (preferUpper >= 1 && avoidUpper === 0) score += 4;
 
   const issues: string[] = [];
   const suggestions: string[] = [];
-  if (avoidDominant) {
-    issues.push('The outfit palette sits awkwardly on the selected skin tone.');
-    suggestions.push('Shift the palette toward colors that flatter this complexion.');
+  if (score < 58) {
+    issues.push('The outfit palette sits awkwardly on the selected complexion.');
+    suggestions.push('Shift the upper-body colors toward shades that complement this complexion.');
   }
   return { score: clamp100(score), issues, suggestions };
 }
 
+function complexionWashesOut(
+  depth: 'light' | 'mid' | 'deep',
+  labels: string,
+  saturation: string | null,
+  brightness: string | null,
+  family: string | null,
+): boolean {
+  const muted = saturation !== 'high';
+  if (depth === 'light') {
+    if (/\b(peach|beige|nude|yellow|camel)\b/.test(labels) && muted) return true;
+    if ((family === 'orange' || family === 'yellow') && brightness === 'light' && muted) return true;
+  }
+  if (depth === 'mid') {
+    if (/\b(muddy|grey|gray)\b/.test(labels)) return true;
+    if (family === 'gray' && saturation === 'low') return true;
+  }
+  if (depth === 'deep') {
+    if (/\b(beige|khaki|brown|tan)\b/.test(labels) && muted) return true;
+    if ((family === 'brown' || family === 'beige') && brightness === 'dark' && muted) return true;
+  }
+  return false;
+}
+
+function complexionUsefulContrast(
+  depth: 'light' | 'mid' | 'deep',
+  labels: string,
+  brightness: string | null,
+  family: string | null,
+): boolean {
+  if (depth === 'light') {
+    return brightness === 'dark' || family === 'navy' || family === 'black' || /\b(navy|charcoal|burgundy|forest)\b/.test(labels);
+  }
+  if (depth === 'deep') {
+    return (
+      brightness === 'light' ||
+      family === 'white' ||
+      family === 'cream' ||
+      family === 'gold' ||
+      /\b(white|ivory|cream|gold|cobalt|emerald)\b/.test(labels)
+    );
+  }
+  return brightness === 'dark' || brightness === 'light';
+}
+
+function skinToneVisualAliases(visual: NonNullable<OutfitScoreItem['visual_attributes']>): string[] {
+  const aliases: string[] = [];
+  const family = visual.color_family;
+  const sat = visual.saturation;
+  const brightness = visual.brightness;
+  if (family === 'blue' && (sat === 'low' || brightness === 'dark')) aliases.push('navy');
+  if (family === 'blue' && sat === 'high') aliases.push('cobalt');
+  if (family === 'green' && (sat === 'low' || brightness === 'dark')) aliases.push('olive', 'forest');
+  if (family === 'green' && sat === 'high') aliases.push('emerald');
+  if (family === 'red' && sat === 'low') aliases.push('burgundy', 'wine');
+  if (family === 'red' && sat === 'high') aliases.push('red');
+  if (family === 'navy') aliases.push('navy');
+  if (family === 'black') aliases.push('black');
+  if (family === 'white' || family === 'cream') aliases.push('white', 'ivory', 'cream');
+  if (family === 'orange' && sat === 'high') aliases.push('orange');
+  if (family === 'yellow' && sat === 'high') aliases.push('yellow');
+  if (visual.primary_color) aliases.push(visual.primary_color);
+  return aliases;
+}
+
 function volumeOf(item: OutfitScoreItem): number | null {
   const values: number[] = [];
-  const fit = item.fit && item.fit !== 'unknown' ? item.fit : null;
-  const sil = item.silhouette && item.silhouette !== 'unknown' ? item.silhouette : null;
+  const fit = resolvedFit(item);
+  const sil = resolvedSilhouette(item);
   const map: Record<string, number> = {
     skinny: 1,
     slim: 2,
@@ -423,16 +697,26 @@ function volumeOf(item: OutfitScoreItem): number | null {
     bodycon: 2,
     regular: 3,
     straight: 3,
+    structured: 3,
     relaxed: 4,
     a_line: 4,
     loose: 5,
     boxy: 5,
     oversized: 5,
     baggy: 6,
+    wide: 6,
     wide_leg: 6,
   };
   if (fit && map[fit] != null) values.push(map[fit]);
   if (sil && map[sil] != null) values.push(map[sil]);
+  if (visualIsUsable(item)) {
+    const weight = item.visual_attributes?.visual_weight;
+    if (weight === 'light') values.push(2);
+    if (weight === 'medium') values.push(3);
+    if (weight === 'heavy') values.push(5);
+    const length = item.visual_attributes?.length;
+    if (length === 'long' && item.category === 'top') values.push(4);
+  }
   const text = itemText(item);
   if (/\bbaggy\b|\bwide[- ]leg\b/.test(text)) values.push(6);
   if (/\boversized\b|\bboxy\b/.test(text)) values.push(5);
@@ -442,7 +726,9 @@ function volumeOf(item: OutfitScoreItem): number | null {
 }
 
 function isCropped(item: OutfitScoreItem): boolean {
-  return item.silhouette === 'cropped' || /\bcrop(?:ped)?\b|\bbaby\s+tee\b/.test(itemText(item));
+  const sil = resolvedSilhouette(item);
+  const length = visualIsUsable(item) ? item.visual_attributes?.length : null;
+  return sil === 'cropped' || length === 'cropped' || /\bcrop(?:ped)?\b|\bbaby\s+tee\b/.test(itemText(item));
 }
 
 function byCategory(items: OutfitScoreItem[], category: string): OutfitScoreItem | undefined {
@@ -458,7 +744,7 @@ function scoreProportion(items: OutfitScoreItem[], style: string): DimensionResu
   const bottomVol = bottom ? volumeOf(bottom) : null;
 
   if (topVol == null && bottomVol == null) {
-    return { score: NEUTRAL_DIMENSION, issues, suggestions };
+    return { score: UNCERTAIN_DIMENSION, issues, suggestions };
   }
 
   let score = 78;
@@ -538,7 +824,7 @@ function scoreOccasion(items: OutfitScoreItem[], style: string, occasion: string
     .map((value) => FORMALITY_RANK[value])
     .filter((value) => Number.isFinite(value));
 
-  let score = NEUTRAL_DIMENSION;
+  let score = UNCERTAIN_DIMENSION;
   if (ranks.length >= 2) {
     const spread = Math.max(...ranks) - Math.min(...ranks);
     score = spread === 0 ? 90 : spread === 1 ? 80 : spread === 2 ? 52 : 34;
@@ -660,7 +946,7 @@ function scoreSeason(items: OutfitScoreItem[], season: SeasonAttr): DimensionRes
   };
   const hints = items.map(seasonHint);
   if (hints.every((list) => list.length === 0)) {
-    return { score: NEUTRAL_DIMENSION, issues, suggestions };
+    return { score: UNCERTAIN_DIMENSION, issues, suggestions };
   }
 
   let matches = 0;
@@ -679,10 +965,73 @@ function scoreSeason(items: OutfitScoreItem[], season: SeasonAttr): DimensionRes
   return { score: clamp100(score), issues, suggestions };
 }
 
-function scoreCohesion(items: OutfitScoreItem[], style: string): DimensionResult {
+function scoreWearability(
+  items: OutfitScoreItem[],
+  style: string,
+  occasion: string,
+): DimensionResult {
   const issues: string[] = [];
   const suggestions: string[] = [];
-  let score = 72;
+  let score = 70;
+
+  const clusters = new Set(
+    items.map(itemCluster).filter((cluster): cluster is keyof typeof STYLE_CLUSTERS => cluster !== null),
+  );
+  const requested = attrKey(style);
+  if (clusters.has('street') && clusters.has('prep') && requested !== 'runway') {
+    score -= 24;
+    issues.push('These pieces would not realistically be worn together.');
+    suggestions.push('Rebuild around one aesthetic instead of mixing competing directions.');
+  }
+
+  const ranks = items
+    .map(inferredFormality)
+    .filter((value): value is FormalityAttr => value != null)
+    .map((value) => FORMALITY_RANK[value])
+    .filter((value) => Number.isFinite(value));
+  if (ranks.length >= 2) {
+    const spread = Math.max(...ranks) - Math.min(...ranks);
+    if (spread >= 2) {
+      score -= 16;
+      issues.push('The silhouette and formality combination is not believable as one outfit.');
+    }
+  }
+
+  const affinities = items.map((item) => itemStyleAffinity(item, style));
+  const best = Math.max(...affinities);
+  const average = affinities.reduce((sum, value) => sum + value, 0) / affinities.length;
+  if (best >= 72 && average >= 55) score += 10;
+  if (best < 55) {
+    score -= 10;
+    issues.push('The outfit feels generic rather than styled for this request.');
+  }
+
+  const loud = items.filter((item) => {
+    const pattern = resolvedPattern(item);
+    const intensity = visualIsUsable(item) ? item.visual_attributes?.visual_intensity : null;
+    return Boolean(pattern && LOUD_PATTERNS.has(pattern)) || (typeof intensity === 'number' && intensity >= 7);
+  });
+  const quiet = items.length - loud.length;
+  if (loud.length === 1 && quiet >= 1) score += 8;
+  if (loud.length >= 2 && !requestedStyleFriendlyIntensity(style)) score -= 10;
+
+  const accepted = occasionFormality(occasion);
+  const known = items.map(inferredFormality).filter((value): value is FormalityAttr => value != null);
+  if (known.length && known.every((value) => !accepted.includes(value))) {
+    score -= 8;
+  }
+
+  return { score: clamp100(score), issues: unique(issues), suggestions: unique(suggestions) };
+}
+
+function scoreCohesion(
+  items: OutfitScoreItem[],
+  style: string,
+  footwearPreference: 'include' | 'none' | undefined,
+): DimensionResult {
+  const issues: string[] = [];
+  const suggestions: string[] = [];
+  let score = 64;
 
   const aesthetics = items.flatMap((item) => (item.aesthetic_tags ?? []).map(attrKey));
   const uniqueAesthetics = new Set(aesthetics.filter((tag) => tag && tag !== 'unknown'));
@@ -711,14 +1060,80 @@ function scoreCohesion(items: OutfitScoreItem[], style: string): DimensionResult
     issues.push('Several pieces compete for attention instead of having a clear focal point.');
   }
 
-  const loud = items.filter((item) => item.pattern && LOUD_PATTERNS.has(item.pattern));
-  if (loud.length >= 2) {
-    score -= 12;
-    issues.push('Several pieces compete for attention instead of having a clear focal point.');
-    suggestions.push('Keep one patterned piece and let the others stay quieter.');
+  const catalogLoud = items.filter((item) => {
+    const pattern = resolvedPattern(item);
+    return Boolean(pattern && LOUD_PATTERNS.has(pattern));
+  });
+  const visualItems = items.filter(visualIsUsable);
+  if (!visualItems.length) {
+    if (catalogLoud.length >= 2) {
+      score -= 12;
+      issues.push('Several pieces compete for attention instead of having a clear focal point.');
+      suggestions.push('Keep one patterned piece and let the others stay quieter.');
+    }
+  } else {
+    const loud = items.filter((item) => {
+      const pattern = resolvedPattern(item);
+      const intensity = item.visual_attributes?.pattern_intensity;
+      const scale = item.visual_attributes?.pattern_scale;
+      const visualIntensity = item.visual_attributes?.visual_intensity;
+      const loudPattern = Boolean(pattern && LOUD_PATTERNS.has(pattern));
+      return (
+        loudPattern ||
+        intensity === 'high' ||
+        (scale === 'large' && loudPattern) ||
+        (typeof visualIntensity === 'number' && visualIntensity >= 7)
+      );
+    });
+    const intensityFriendly = requestedStyleFriendlyIntensity(style);
+    if (loud.length >= 2) {
+      const bothHigh =
+        loud.filter((item) => {
+          const intensity = item.visual_attributes?.pattern_intensity;
+          const visualIntensity = item.visual_attributes?.visual_intensity;
+          const scale = item.visual_attributes?.pattern_scale;
+          return (
+            intensity === 'high' ||
+            scale === 'large' ||
+            (typeof visualIntensity === 'number' && visualIntensity >= 7)
+          );
+        }).length >= 2;
+      if (bothHigh && !intensityFriendly) {
+        score -= 12;
+        issues.push('Several pieces compete for attention instead of having a clear focal point.');
+        suggestions.push('Keep one patterned piece and let the others stay quieter.');
+      } else if (bothHigh && intensityFriendly) {
+        score -= 4;
+      } else if (!intensityFriendly) {
+        const scales = loud.map((item) => item.visual_attributes?.pattern_scale).filter(Boolean);
+        if (scales.includes('large') && scales.includes('small')) {
+          score -= 4;
+        } else {
+          score -= 8;
+          issues.push('Several pieces compete for attention instead of having a clear focal point.');
+          suggestions.push('Keep one patterned piece and let the others stay quieter.');
+        }
+      }
+    }
   }
 
-  const shoes = byCategory(items, 'shoes');
+  const appearances = items
+    .map((item) => (visualIsUsable(item) ? item.visual_attributes?.material_appearance : null))
+    .filter((value): value is NonNullable<typeof value> => Boolean(value));
+  const athleticLook = appearances.some((value) => value === 'technical' || value === 'fleece');
+  const tailoredLook = appearances.some((value) => value === 'wool' || value === 'silky');
+  if (athleticLook && tailoredLook) {
+    score -= 8;
+  }
+
+  const visualAesthetics = items.flatMap((item) =>
+    visualIsUsable(item) ? (item.visual_attributes?.aesthetics ?? []).map(attrKey) : [],
+  );
+  const uniqueVisual = new Set(visualAesthetics);
+  if (uniqueVisual.size === 1 && visualAesthetics.length >= 2) score += 4;
+  else if (uniqueVisual.size >= 3) score -= 4;
+
+  const shoes = footwearPreference === 'none' ? undefined : byCategory(items, 'shoes');
   const aliases = styleKeys(style).map(attrKey);
   if (shoes) {
     const dress = looksLikeDressFootwear(shoes);
@@ -778,13 +1193,22 @@ export function scoreOutfit(
 
   const season = context.season ?? currentSeason();
   const style = scoreStyle([...items], context.style);
-  const color = scoreColor([...items], context.style);
+  const color = scoreColor([...items], context.style, context.footwearPreference);
   const proportion = scoreProportion([...items], context.style);
-  const skinTone = scoreSkinTone([...items], context.skinTone);
+  const skinTone = scoreSkinTone(
+    [...items],
+    context.skinTone,
+    context.footwearPreference,
+    context.colorPreference,
+  );
   const occasion = scoreOccasion([...items], context.style, context.occasion);
   const fit = scoreFit([...items], context.measurements);
   const seasonScore = scoreSeason([...items], season);
-  const cohesion = scoreCohesion([...items], context.style);
+  const cohesion = scoreCohesion([...items], context.style, context.footwearPreference);
+  const wearability = scoreWearability([...items], context.style, context.occasion);
+
+  style.score = clamp100(style.score * 0.7 + wearability.score * 0.3);
+  cohesion.score = clamp100(cohesion.score * 0.55 + wearability.score * 0.45);
 
   const breakdown: OutfitScoreBreakdown = {
     style: Math.round(style.score),
@@ -817,6 +1241,7 @@ export function scoreOutfit(
     ...fit.issues,
     ...seasonScore.issues,
     ...cohesion.issues,
+    ...wearability.issues,
   ];
   const rawSuggestions = [
     ...style.suggestions,
@@ -827,14 +1252,23 @@ export function scoreOutfit(
     ...fit.suggestions,
     ...seasonScore.suggestions,
     ...cohesion.suggestions,
+    ...wearability.suggestions,
   ];
 
   // Strong outfits stay quiet — no filler copy.
   const strong = score >= 78;
+  const dropFootwearGap = context.footwearPreference === 'none';
+  const issues = (strong ? [] : unique(rawIssues)).filter(
+    (issue) => !dropFootwearGap || !/missing shoes|no shoes|incomplete because.{0,40}shoe/i.test(issue),
+  );
+  const suggestions = (strong ? [] : unique(rawSuggestions)).filter(
+    (suggestion) =>
+      !dropFootwearGap || !/add (shoes|footwear|sneakers)|missing shoes/i.test(suggestion),
+  );
   return {
     score,
     breakdown,
-    issues: strong ? [] : unique(rawIssues),
-    suggestions: strong ? [] : unique(rawSuggestions),
+    issues,
+    suggestions,
   };
 }

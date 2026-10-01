@@ -4,7 +4,7 @@
  */
 import { toFashionResponseFields } from '../../generate-outfit/attachFashionScore.ts';
 import { criticImageUrls, criticProductsFromCatalog } from './criticInput.ts';
-import { critiqueWinningOutfit } from './critiqueWinningOutfit.ts';
+import { critiqueWinningOutfit, toFashionCriticFields } from './critiqueWinningOutfit.ts';
 import { parseFashionCriticResult } from './parseFashionCritic.ts';
 import type { FashionAIProvider, FashionCriticInput, FashionCriticResult } from './types.ts';
 
@@ -103,6 +103,39 @@ const mixedImages = criticProductsFromCatalog([
 assert(mixedImages[0].image_available === true, 'TEST 8: valid image kept');
 assert(mixedImages[1].image_available === false, 'TEST 8: missing image does not crash');
 assert(mixedImages[2].image_available === false, 'TEST 8: invalid image skipped');
+
+const visualCatalog = criticProductsFromCatalog([
+  {
+    id: 'top-1',
+    name: 'Tee',
+    brand: 'A',
+    category: 'top',
+    image_url: 'https://cdn.example.com/tee.jpg',
+    visual_attributes: {
+      primary_color: 'washed black',
+      secondary_colors: ['white'],
+      color_family: 'black',
+      saturation: 'low',
+      brightness: 'dark',
+      primary_hex: null,
+      fit: 'oversized',
+      silhouette: 'boxy',
+      length: 'regular',
+      pattern: 'graphic',
+      pattern_scale: 'large',
+      pattern_intensity: 'high',
+      visual_weight: 'heavy',
+      visual_intensity: 8,
+      material_appearance: 'heavy_cotton',
+      aesthetics: ['streetwear'],
+      formality: 0.2,
+      season: [],
+      confidence: 0.9,
+    },
+  },
+]);
+assert(visualCatalog[0].visual?.primary_color === 'washed black', 'critic receives structured visual attributes');
+assert(visualCatalog[0].visual?.visual_intensity === 8, 'critic receives visual intensity');
 
 const noImagesInput: FashionCriticInput = {
   style: 'Casual',
@@ -230,6 +263,23 @@ const attached = {
   },
 };
 assert(okRun.fashion_critic_available === true, 'TEST 11: critic attaches when available');
+assert(
+  toFashionCriticFields(okRun).fashion_critic_available === true,
+  'TEST 27: fashion_critic_available is true when critic ran',
+);
+assert(
+  toFashionCriticFields({
+    fashion_critic_available: true,
+    fashion_critic: parsed!,
+    image_count: 2,
+  }).fashion_critic_available === true,
+  'TEST 27b: availability uses fashion_critic_available, not a missing available flag',
+);
+assert(
+  toFashionCriticFields({ fashion_critic_available: false, image_count: 0 }).fashion_critic_available ===
+    false,
+  'TEST 27c: skipped critic stays unavailable',
+);
 assert(attached.fashion_score === 86, 'TEST 11: fashion_score not replaced by critic');
 assert(attached.fashion_breakdown.cohesion === 88, 'TEST 12: fashion_breakdown unchanged');
 assert(attached.fashion_issues[0] === 'none', 'TEST 12: fashion_issues unchanged');

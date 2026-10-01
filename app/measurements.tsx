@@ -56,7 +56,7 @@ const EMPTY_ADVANCED: AdvancedDraft = {
 
 export default function MeasurementsScreen() {
   const router = useRouter();
-  const { bodyMeasurements, setBodyMeasurements, gender, setGender, skinTone, setSkinTone } =
+  const { bodyMeasurements, setBodyMeasurements, gender, setGender, skinTone, setSkinTone, colorPreference, setColorPreference } =
     usePreferences();
   const initial = draftFromSaved(bodyMeasurements);
 
@@ -177,6 +177,20 @@ export default function MeasurementsScreen() {
             />
           ))}
         </View>
+        <Text style={styles.fieldLabel}>Color preference</Text>
+        <ColorPreferenceOption
+          label="Prioritize colors that complement my complexion"
+          hint="Use my complexion to guide the colors that suit me best."
+          selected={colorPreference === 'complexion'}
+          onPress={() => setColorPreference('complexion')}
+          testID="chip-color-complexion"
+        />
+        <ColorPreferenceOption
+          label="Let my style guide the colors"
+          selected={colorPreference === 'style_first'}
+          onPress={() => setColorPreference('style_first')}
+          testID="chip-color-style-first"
+        />
       </View>
 
       <View style={styles.fields}>
@@ -323,6 +337,35 @@ function UnitChip({
       <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>
         {label}
       </Text>
+    </Pressable>
+  );
+}
+
+function ColorPreferenceOption({
+  label,
+  hint,
+  selected,
+  onPress,
+  testID,
+}: {
+  label: string;
+  hint?: string;
+  selected: boolean;
+  onPress: () => void;
+  testID?: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={[styles.colorOption, selected && styles.colorOptionSelected]}
+      testID={testID}
+    >
+      <Text style={[styles.colorOptionLabel, selected && styles.chipLabelSelected]}>
+        {label}
+      </Text>
+      {hint ? <Text style={styles.skinHint}>{hint}</Text> : null}
     </Pressable>
   );
 }
@@ -579,6 +622,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
+  },
+  colorOption: {
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  colorOptionSelected: {
+    borderColor: colors.borderSelected,
+    backgroundColor: colors.surfaceMuted,
+  },
+  colorOptionLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
   },
   skinOption: {
     alignItems: 'center',

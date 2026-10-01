@@ -118,8 +118,87 @@ export type NormalizeResult =
       product: NormalizedProduct;
       offerDomain: string;
       channel3BrandName: string;
+      incoming: {
+        style_tags: number;
+        colors: number;
+        sizes: number;
+      };
     }
   | { ok: false; reason: NormalizeSkipReason; product_id?: string };
+
+const STYLE_ATTR_KEYS = ['style', 'styles', 'style_tags', 'style tags'];
+const OCCASION_ATTR_KEYS = ['occasion', 'occasions', 'occasion_tags', 'occasion tags'];
+const AESTHETIC_ATTR_KEYS = ['aesthetic', 'aesthetics', 'aesthetic_tags', 'aesthetic tags'];
+const SEASON_ATTR_KEYS = ['season', 'seasons', 'season_tags', 'season tags'];
+const FIT_ATTR_KEYS = ['fit', 'fits'];
+const SILHOUETTE_ATTR_KEYS = ['silhouette', 'silhouettes'];
+const PATTERN_ATTR_KEYS = ['pattern', 'patterns'];
+const FORMALITY_ATTR_KEYS = ['formality', 'dress_code', 'dress code'];
+
+function lookupStructured(
+  attrs: Record<string, string[]> | undefined,
+  names: string[],
+): string[] {
+  if (!attrs) return [];
+  const keys = Object.keys(attrs);
+  for (const name of names) {
+    const hit = keys.find((key) => key.trim().toLowerCase() === name);
+    if (hit && attrs[hit]?.length) return uniqueClean(attrs[hit]);
+  }
+  return [];
+}
+
+function firstStructured(
+  attrs: Record<string, string[]> | undefined,
+  names: string[],
+): string | null {
+  return lookupStructured(attrs, names)[0] ?? null;
+}
+
+/** Copy Channel3 structured fashion fields only when the API provided them. */
+export function extractChannel3FashionMetadata(raw: Channel3Product): {
+  style_tags: string[];
+  occasion_tags: string[];
+  aesthetic_tags: string[];
+  season_tags: string[];
+  fit: string | null;
+  silhouette: string | null;
+  pattern: string | null;
+  formality: string | null;
+  incoming_style_tags: number;
+  incoming_colors: number;
+} {
+  const attrs = raw.structured_attributes;
+  const style_tags = lookupStructured(attrs, STYLE_ATTR_KEYS);
+  const occasion_tags = lookupStructured(attrs, OCCASION_ATTR_KEYS);
+  const aesthetic_tags = lookupStructured(attrs, AESTHETIC_ATTR_KEYS);
+  const season_tags = lookupStructured(attrs, SEASON_ATTR_KEYS);
+  return {
+    style_tags,
+    occasion_tags,
+    aesthetic_tags,
+    season_tags,
+    fit: firstStructured(attrs, FIT_ATTR_KEYS),
+    silhouette: firstStructured(attrs, SILHOUETTE_ATTR_KEYS),
+    pattern: firstStructured(attrs, PATTERN_ATTR_KEYS),
+    formality: firstStructured(attrs, FORMALITY_ATTR_KEYS),
+    incoming_style_tags: style_tags.length,
+    incoming_colors: uniqueClean(attrs?.color ?? attrs?.colors ?? []).length,
+  };
+}
+
+export function extraChannel3ImageUrls(images: Channel3Image[] | undefined, main: string): string[] {
+  if (!images?.length) return [];
+  const urls: string[] = [];
+  const seen = new Set<string>([main]);
+  for (const image of images) {
+    const href = usableImageUrl(image.cleaned_url) ?? usableImageUrl(image.url);
+    if (!href || seen.has(href)) continue;
+    seen.add(href);
+    urls.push(href);
+  }
+  return urls;
+}
 
 export function normalizeChannel3Product(
   raw: Channel3Product | null | undefined,
@@ -156,7 +235,9 @@ export function normalizeChannel3Product(
     raw.brands?.find((entry) => entry.name?.trim())?.name.trim() ||
     options.fallbackBrand ||
     'Unknown';
-  const colors = uniqueClean(raw.structured_attributes?.color ?? []);
+  const colors = uniqueClean(
+    raw.structured_attributes?.color ?? raw.structured_attributes?.colors ?? [],
+  );
   const sizes = uniqueClean(
     (raw.variants?.options ?? [])
       .filter((option) => /size/i.test(option.name ?? ''))
@@ -168,6 +249,9 @@ export function normalizeChannel3Product(
       : raw.gender === 'female'
         ? 'women'
         : detectGender(raw.title, raw.description, classified.subcategory);
+  const fashion = extractChannel3FashionMetadata(raw);
+  const brandId = raw.brands?.find((entry) => entry.id?.trim())?.id.trim() ?? null;
+  const extraImages = extraChannel3ImageUrls(raw.images, imageUrl);
 
   const product: NormalizedProduct = {
     brand,
@@ -189,6 +273,16 @@ export function normalizeChannel3Product(
     source: CHANNEL3_SOURCE,
     source_product_id: channel3SourceProductId(id),
     last_checked: options.now,
+    brand_id: brandId,
+    style_tags: fashion.style_tags,
+    occasion_tags: fashion.occasion_tags,
+    aesthetic_tags: fashion.aesthetic_tags,
+    season_tags: fashion.season_tags,
+    fit: fashion.fit,
+    silhouette: fashion.silhouette,
+    pattern: fashion.pattern,
+    formality: fashion.formality,
+    image_urls: extraImages,
   };
 
   if (!isValidProduct(product) || product.availability !== 'in_stock') {
@@ -199,6 +293,11 @@ export function normalizeChannel3Product(
     product,
     offerDomain: normalizeDomain(offer.domain) || hostFromUrl(offer.url) || 'unknown',
     channel3BrandName: brand,
+    incoming: {
+      style_tags: fashion.incoming_style_tags,
+      colors: colors.length,
+      sizes: sizes.length,
+    },
   };
 }
 

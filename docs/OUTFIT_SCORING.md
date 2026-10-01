@@ -76,7 +76,7 @@ Does **not** require every item to carry the requested style tag.
 
 Judges the **palette**, not each SKU alone.
 
-Tokens come from `colors[]`, `color`, name, and a short description slice. Classification:
+Tokens come from `visual_attributes` when confidence is usable, otherwise `colors[]`, `color`, name, and a short description slice. Classification:
 
 **Neutrals:** black, white, cream, ivory, gray, charcoal, beige, camel, brown, navy  
 **Families:** red, orange, yellow, green, blue, purple, pink  
@@ -91,13 +91,13 @@ Bold palettes are penalized less for Y2K / runway / streetwear, still not free.
 
 Reuses `SKIN_TONE_COLORS` from `fashionSignals.ts` (the same prefer/avoid lists `skinToneColorScore` uses).
 
-Evaluates the **combined** labels. cream + olive + brown on medium is a palette (mostly preferred), not `cream +X, olive +X, brown −X`. Soft preference only. No undertones, no vision.
+Evaluates the **combined** labels. cream + olive + brown on medium is a palette (mostly preferred), not `cream +X, olive +X, brown −X`. Soft preference only. No undertones, no automatic skin-tone detection. With visual attributes, garment placement and saturation refine the same lists (tops matter more than shoes).
 
 Unset skin tone → 70.
 
 ### Proportion — 20%
 
-Volume from `fit` + `silhouette` (+ name fallback):
+Volume from `fit` + `silhouette` + visual weight/length when available (+ name fallback):
 
 skinny < slim/fitted < regular/straight < relaxed < oversized/boxy < baggy/wide-leg
 
@@ -134,7 +134,7 @@ No size claims. No “this SKU fits you.”
 
 ### Cohesion — 5%
 
-Whether the set looks intentional: shared aesthetics, color repetition, material clash (fleece + wool), two loud patterns, footwear that reinforces the vibe, optional outerwear/accessory that actually helps.
+Whether the set looks intentional: shared aesthetics, color repetition, material clash (fleece + wool), two loud patterns (scale/intensity when visual data exists), footwear that reinforces the vibe, optional outerwear/accessory that actually helps.
 
 Not the same as style score. A streetwear graphic tee + formal wool trousers + loafers can each be “valid” items and still look accidental together.
 
@@ -188,11 +188,82 @@ From `fashionSignals.ts` / `fashionAttributes.ts` (extracted so generate-outfit 
 
 ---
 
+## Phase 4: visual attributes
+
+Structured visual information from product **images**, not a second stylist. Gemini vision fills `visual_attributes` on a shortlist of already-ranked candidates. `scoreOutfit()`, Gemini generation, the critic, and revision **consume** those fields. They do not let vision pick the outfit.
+
+### Schema
+
+Additive `CatalogProduct.visual_attributes` (in-memory). Existing `fit` / `silhouette` / `pattern` / `material` / `style_tags` stay. No `visual_fit` duplicate.
+
+Includes: primary/secondary color, color family, saturation, brightness, optional hex, fit, silhouette, length, pattern + scale/intensity, visual weight, visual intensity (0–10), material appearance, aesthetics, formality, season, overall confidence.
+
+Unknown or invalid enums are `null`. Ambiguous images must not be forced into a guess.
+
+### How images are analyzed
+
+`enrichProductsWithVisualAttributes()` in `_shared/catalog/visualAnalysis.ts`:
+
+1. After `filterCandidates`, take ~10–15 products with usable image URLs (round-robin across categories).
+2. Skip shoes when `footwear_preference = none`.
+3. Fetch images and batch them into Gemini (about 5 per request).
+4. Parse strict JSON. Malformed JSON skips that batch/product.
+5. Attach attributes in memory. Log only `[VISUAL_ENRICHMENT] attempted / successful / failed`.
+
+Missing Gemini key, missing image, or parse failure: keep existing metadata and continue generation.
+
+### Precedence (fit / silhouette / pattern)
+
+1. High-confidence existing structured catalog values (not null/`unknown`)
+2. High-confidence visual inference (`confidence >= 0.6`)
+3. Weak text inference (scorer keywords)
+4. Unknown
+
+Visual aesthetics **merge for scoring only**. They never overwrite `style_tags`. Catalog `material` stays source-owned; vision uses `material_appearance`.
+
+### Confidence
+
+`confidence < 0.45`: ignored by scoring and prompts. Low-confidence results do not dominate.
+
+### Color and skin tone
+
+When usable visual data exists, color tokens prefer observed primary color, family, saturation, and brightness so dusty blue and electric blue are not the same. Palette scoring still uses the same 20% color weight.
+
+Skin-tone scoring still uses `SKIN_TONE_COLORS` prefer/avoid lists. No automatic skin-tone detection and no undertone claims. With visual data, hits are weighted by garment placement:
+
+| Placement | Weight |
+|---|---|
+| top / neckline | high (1.0) |
+| outerwear | high (0.85) |
+| accessory | medium/high (0.7) |
+| bottom | low (0.25) |
+| shoes | very low (0.08), **0 when footwear is none** |
+
+Muted vs saturated versions of a family map onto those lists (e.g. low-sat dark blue → navy).
+
+### Proportion, pattern, cohesion
+
+Visual weight (`light` / `medium` / `heavy`) and resolved fit/silhouette/length feed volume. Pattern scale and intensity distinguish a small logo from two large graphics. High visual intensity is not automatically bad: Y2K, streetwear, runway, and grunge can support it.
+
+### Gemini / critic / revision
+
+Candidate JSON may include a `visual` object. The model must not invent attributes that conflict with it. The critic and revision catalog receive the same object. Revision still cannot break budget, gender, category rules, brand scope, or No Shoes.
+
+### Live Channel3 vs persisted catalog
+
+Live Channel3 products exist only in memory for a request. Visual analysis for them is in-memory too — **no Supabase writes** just to cache vision. Persisted catalog rows still get `fit` / `silhouette` / `pattern` from enrich-product; Phase 4 does not add a vision column or re-enrich the table during generate-outfit.
+
+### No Shoes
+
+When footwear is none: do not retrieve, analyze, require, or score shoes, and do not let Gemini, the critic, or revision add them.
+
+---
+
 ## Known limitations
 
-- No product photos. Color is text tokens only; “navy” in a name without a color field still counts.
-- Live `style_tags` / `fit` / `silhouette` are often empty; keywords then carry the style score.
-- No hex, no contrast-role model, no real size table.
+- Color still falls back to text tokens when visual attributes are missing or low-confidence.
+- Live `style_tags` / `fit` / `silhouette` are often empty; keywords then carry the style score unless vision filled them.
+- Hex is an optional rough approximation, not a measured swatch.
 - Season is UTC month, not the wearer’s city or weather.
 - Inspiration images/URLs are ignored (they never reach this function).
 - Accessories/outerwear are optional extras; they can help or hurt cohesion but never make an outfit legal.

@@ -34,6 +34,7 @@ export default function OutfitScreen() {
     selectedBudget,
     shoesInBudget,
     shoeBudget,
+    footwearPreference,
     generatedOutfit,
     generationError,
     generationErrorCode,
@@ -49,6 +50,7 @@ export default function OutfitScreen() {
     budget: selectedBudget ?? undefined,
     budget_range: selectedBudget ? getBudgetRange(selectedBudget) : undefined,
     premium_status: premiumStatusLabel(isPremium),
+    footwear_preference: footwearPreference,
     outfit_total: generatedOutfit?.total,
   };
 
@@ -261,7 +263,10 @@ export default function OutfitScreen() {
       <BackButton fallbackHref="/budget" />
       <OutfitCard
         outfit={generatedOutfit}
-        budget={selectedBudget + (shoesInBudget ? 0 : shoeBudget ?? 0)}
+        budget={
+          selectedBudget +
+          (footwearPreference === 'none' || shoesInBudget ? 0 : shoeBudget ?? 0)
+        }
       />
     </Screen>
   );

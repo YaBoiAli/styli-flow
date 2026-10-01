@@ -377,8 +377,183 @@ async function main() {
   const merged = mergeCatalogProducts(liveNoShoes.products, [catalogItem('stored-shoe', 'shoes')]);
   assert(missingRequiredCategories(merged).length === 0, '8d: merge fills the gap');
 
+  const noShoeSearch = recordingBackend(bySlot);
+  const liveNoShoePref = await retrieveLiveChannel3Catalog({
+    backend: noShoeSearch.backend,
+    style: 'Streetwear',
+    occasion: 'Everyday',
+    gender: 'men',
+    budget: 150,
+    shoeBudget: null,
+    brands: [],
+    categories: ['top', 'bottom'],
+  });
+  assert(
+    noShoeSearch.searches.every((row) => !/sneaker|shoe|boot|heel/i.test(row)),
+    'no-shoes: Channel3 does not execute the shoes search',
+  );
+  assert(liveNoShoePref.categories.shoes === 0, 'no-shoes: retrieved catalog has no shoes');
+
+  const includeSearch = recordingBackend(bySlot);
+  await retrieveLiveChannel3Catalog({
+    backend: includeSearch.backend,
+    style: 'Streetwear',
+    occasion: 'Everyday',
+    gender: 'men',
+    budget: 150,
+    shoeBudget: null,
+    brands: [],
+  });
+  assert(
+    includeSearch.searches.some((row) => /sneaker|shoe|boot|heel/i.test(row)),
+    'include-shoes: Channel3 still executes the shoes search',
+  );
+
+  const liveTopsBottoms = liveNoShoes;
+  const noShoeHybrid = await resolveGenerationCatalog({
+    retrieveLive: async () => liveTopsBottoms,
+    loadStored: async () =>
+      storedOk([
+        catalogItem('stored-top', 'top'),
+        catalogItem('stored-shoe', 'shoes'),
+      ]),
+    isSufficient: (products) => missingRequiredCategories(products, ['top', 'bottom']).length === 0,
+    required: ['top', 'bottom'],
+    excludeCategories: ['shoes'],
+  });
+  assert(
+    noShoeHybrid.products.every((product) => product.category !== 'shoes'),
+    'hybrid: no-shoes generation does not fill shoes from Supabase',
+  );
+
+  const sneakerHybrid = await resolveGenerationCatalog({
+    retrieveLive: async () => liveTopsBottoms,
+    loadStored: async () =>
+      storedOk([
+        catalogItem('stored-top', 'top'),
+        {
+          ...catalogItem('stored-sneaker', 'accessory'),
+          name: 'White Canvas Sneakers',
+          subcategory: 'sneakers',
+        },
+      ]),
+    isSufficient: (products) => missingRequiredCategories(products, ['top', 'bottom']).length === 0,
+    required: ['top', 'bottom'],
+    excludeCategories: ['shoes'],
+  });
+  assert(
+    sneakerHybrid.products.every((product) => product.id !== 'stored-sneaker'),
+    'hybrid: footwear is not selected even if stored as accessory',
+  );
+  assert(noShoeHybrid.retrievalSource === 'channel3_live', 'hybrid: top+bottom live is sufficient without shoes');
+
   const normalized = normalizeChannel3Product(raw({ id: 'n1', title: 'Graphic Tee' }), { now });
   assert(normalized.ok && catalogProductFromNormalized(normalized.product).id === 'channel3:n1', 'map: Channel3 id stays in memory');
+  assert(liveFull.reason === 'successful', '1: successful Channel3 reason is successful');
+  assert(hybrid.retrievalSource === 'hybrid', '2: partial Channel3 retrieval stays hybrid');
+
+  const metaRaw = raw({
+    id: 'meta-1',
+    title: 'Oversized Hoodie',
+    slug: 'hoodies',
+    brands: [{ id: 'c3-acme', name: 'Acme' }],
+    structured_attributes: {
+      color: ['black'],
+      style: ['streetwear'],
+      occasion: ['everyday'],
+      fit: ['oversized'],
+      silhouette: ['boxy'],
+    },
+    variants: { options: [{ name: 'Size', values: ['S', 'M', 'L'] }] },
+  });
+  const metaNorm = normalizeChannel3Product(metaRaw, { now });
+  assert(metaNorm.ok, '5: tagged Channel3 product normalizes');
+  if (metaNorm.ok) {
+    const mapped = catalogProductFromNormalized(metaNorm.product);
+    assert(mapped.brand_id === 'c3-acme', '5: Channel3 brand_id is preserved');
+    assert(mapped.style_tags.includes('streetwear'), '5: Channel3 style tags survive');
+    assert(mapped.occasion_tags.includes('everyday'), '5: Channel3 occasion tags survive');
+    assert(mapped.fit === 'oversized' && mapped.silhouette === 'boxy', '5: Channel3 fit/silhouette survive');
+    assert(mapped.colors.includes('black'), '5: Channel3 colors survive');
+    assert(mapped.sizes?.includes('M'), '5: Channel3 sizes survive in memory');
+    assert(!mapped.style_tags.includes('y2k'), '5b: missing tags are not invented');
+    assert(metaNorm.incoming.style_tags === mapped.style_tags.length, '6: style tag counts are preserved');
+  }
+  const plainNorm = normalizeChannel3Product(raw({ id: 'plain', title: 'Graphic Tee' }), { now });
+  assert(plainNorm.ok && catalogProductFromNormalized(plainNorm.product).style_tags.length === 0, '5c: untagged Channel3 stays untagged');
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+  const delayedBase = recordingBackend(bySlot);
+  const slowShoes: StrategySearchBackend = {
+    resolveBrand: (name) => delayedBase.backend.resolveBrand(name),
+    async search(input) {
+      if (/sneaker|shoe|boot|heel/i.test(input.query)) await sleep(350);
+      return delayedBase.backend.search(input);
+    },
+  };
+  const partialTimeout = await retrieveLiveChannel3Catalog({
+    backend: slowShoes,
+    style: 'Streetwear',
+    occasion: 'Everyday',
+    gender: 'men',
+    budget: 150,
+    shoeBudget: null,
+    brands: [],
+    timeoutMs: 80,
+  });
+  assert(partialTimeout.ok, '3: timeout keeps already-completed category results');
+  assert(partialTimeout.categories.top > 0 && partialTimeout.categories.bottom > 0, '3b: completed top/bottom survive timeout');
+  assert(partialTimeout.reason === 'partial_results' || partialTimeout.timedOut, '3c: timeout is recorded as partial, not silent fallback');
+
+  const timeoutHybrid = await resolveGenerationCatalog({
+    retrieveLive: async () => partialTimeout,
+    loadStored: async () => storedOk([catalogItem('stored-shoe', 'shoes')]),
+    isSufficient: (products) => missingRequiredCategories(products).length === 0,
+  });
+  assert(timeoutHybrid.retrievalSource === 'hybrid', '3d: category timeout becomes hybrid, not catalog_fallback');
+  assert(timeoutHybrid.products.some((product) => product.category === 'shoes' && product.id === 'stored-shoe'), '3e: only missing shoes fall back');
+  assert(timeoutHybrid.products.some((product) => product.category === 'top'), '3f: live tops are kept');
+
+  const allSlow: StrategySearchBackend = {
+    async resolveBrand() {
+      await sleep(200);
+      return { id: 'id-acme', name: 'Acme' };
+    },
+    async search() {
+      await sleep(200);
+      return [];
+    },
+  };
+  const fullTimeout = await retrieveLiveChannel3Catalog({
+    backend: allSlow,
+    style: 'Streetwear',
+    occasion: 'Everyday',
+    gender: 'men',
+    budget: 150,
+    shoeBudget: null,
+    brands: [],
+    timeoutMs: 40,
+  });
+  assert(!fullTimeout.ok && fullTimeout.reason === 'request_timeout', '4: complete Channel3 timeout is request_timeout');
+  const fullFallback = await resolveGenerationCatalog({
+    retrieveLive: async () => fullTimeout,
+    loadStored: async () =>
+      storedOk([
+        catalogItem('c-top', 'top'),
+        catalogItem('c-bottom', 'bottom'),
+        catalogItem('c-shoe', 'shoes'),
+      ]),
+    isSufficient: (products) => missingRequiredCategories(products).length === 0,
+  });
+  assert(fullFallback.retrievalSource === 'catalog_fallback', '4b: complete Channel3 failure falls back');
+  assert(!liveThrow.ok && liveThrow.attempted, '4c: thrown Channel3 search does not crash retrieval');
+  assert(
+    liveThrow.reason === 'empty_results' || liveThrow.reason === 'request_error',
+    '4c: thrown Channel3 search is recorded, not collapsed to catalog_fallback at retrieval',
+  );
+  assert(liveEmpty.reason === 'empty_results', '4d: empty Channel3 is empty_results');
 
   if (failed) {
     console.error(`\n${failed} failed, ${passed} passed`);

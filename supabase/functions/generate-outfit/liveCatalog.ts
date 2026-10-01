@@ -1,4 +1,10 @@
 import type { CatalogProduct, CatalogResult, ProductCategory } from './catalog.ts';
+import { isFootwearProduct } from './footwearPreference.ts';
+import {
+  type Channel3Reason,
+  emptyMetadataStats,
+  mapLegacyChannel3Reason,
+} from './genTrace.ts';
 import {
   LIVE_REQUIRED_CATEGORIES,
   type LiveRetrieval,
@@ -56,14 +62,24 @@ export async function resolveGenerationCatalog(input: {
   loadStored: () => Promise<CatalogResult>;
   isSufficient: (products: CatalogProduct[]) => boolean;
   required?: ProductCategory[];
+  excludeCategories?: ProductCategory[];
 }): Promise<ResolvedGenerationCatalog> {
   const required = input.required ?? LIVE_REQUIRED_CATEGORIES;
+  const exclude = new Set(input.excludeCategories ?? []);
+  const dropFootwear = exclude.has('shoes');
+  const withoutExcluded = (products: CatalogProduct[]) => {
+    const next = exclude.size
+      ? products.filter((product) => !exclude.has(product.category))
+      : products;
+    return dropFootwear ? next.filter((product) => !isFootwearProduct(product)) : next;
+  };
   const live = await input.retrieveLive();
   if (live.attempted) logLiveRetrieval(live);
+  const liveProducts = withoutExcluded(live.products);
 
-  if (live.ok && input.isSufficient(live.products)) {
+  if (live.ok && input.isSufficient(liveProducts)) {
     return {
-      products: live.products,
+      products: liveProducts,
       retrievalSource: 'channel3_live',
       channel3Attempted: true,
       catalogOrigin: null,
@@ -79,8 +95,8 @@ export async function resolveGenerationCatalog(input: {
       stored: stored.code,
     });
     return {
-      products: live.products,
-      retrievalSource: live.products.length ? 'channel3_live' : 'catalog_fallback',
+      products: liveProducts,
+      retrievalSource: liveProducts.length ? 'channel3_live' : 'catalog_fallback',
       channel3Attempted: live.attempted,
       catalogOrigin: null,
       unavailableBrands: stored.unavailableBrands,
@@ -89,26 +105,29 @@ export async function resolveGenerationCatalog(input: {
     };
   }
 
-  const liveMissing = missingRequiredCategories(live.products, required);
+  const storedProducts = withoutExcluded(stored.products);
+  const liveMissing = missingRequiredCategories(liveProducts, required);
   const reason =
     !live.attempted
-      ? 'missing_api_key'
+      ? 'no_api_key'
       : !live.ok
-        ? live.reason ?? 'empty'
+        ? live.reason ?? 'empty_results'
         : liveMissing.length
-          ? `missing_${liveMissing.join('_')}`
+          ? live.reason === 'partial_results' || live.timedOut
+            ? 'partial_results'
+            : `missing_${liveMissing.join('_')}`
           : 'insufficient_core_outfit';
 
   const products =
-    live.ok && live.products.length
-      ? mergeCatalogProducts(live.products, stored.products)
-      : stored.products;
-  const usedLive = live.ok && live.products.length > 0;
+    live.ok && liveProducts.length
+      ? mergeCatalogProducts(liveProducts, storedProducts)
+      : storedProducts;
+  const usedLive = live.ok && liveProducts.length > 0;
   const retrievalSource: LiveRetrievalSource = usedLive ? 'hybrid' : 'catalog_fallback';
   logLiveFallback(reason, {
     source: retrievalSource,
     live_categories: live.categories,
-    stored_count: stored.products.length,
+    stored_count: storedProducts.length,
   });
 
   return {
@@ -123,15 +142,18 @@ export async function resolveGenerationCatalog(input: {
 }
 
 export function emptyLiveRetrieval(reason: string): LiveRetrieval {
+  const mapped: Channel3Reason = mapLegacyChannel3Reason(reason);
   return {
     attempted: false,
     ok: false,
-    reason,
+    reason: mapped,
     products: [],
     fetched: 0,
     queryCount: 0,
     usable: 0,
     categories: countByCategory([]),
     unresolvedBrands: [],
+    timedOut: mapped === 'request_timeout',
+    metadata: emptyMetadataStats(),
   };
 }
