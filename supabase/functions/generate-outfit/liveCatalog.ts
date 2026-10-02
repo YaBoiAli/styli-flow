@@ -63,15 +63,21 @@ export async function resolveGenerationCatalog(input: {
   isSufficient: (products: CatalogProduct[]) => boolean;
   required?: ProductCategory[];
   excludeCategories?: ProductCategory[];
+  excludeIds?: Iterable<string>;
 }): Promise<ResolvedGenerationCatalog> {
   const required = input.required ?? LIVE_REQUIRED_CATEGORIES;
   const exclude = new Set(input.excludeCategories ?? []);
+  const excludeIds = new Set(input.excludeIds ?? []);
   const dropFootwear = exclude.has('shoes');
   const withoutExcluded = (products: CatalogProduct[]) => {
     const next = exclude.size
       ? products.filter((product) => !exclude.has(product.category))
       : products;
-    return dropFootwear ? next.filter((product) => !isFootwearProduct(product)) : next;
+    const withoutFootwear = dropFootwear
+      ? next.filter((product) => !isFootwearProduct(product))
+      : next;
+    if (!excludeIds.size) return withoutFootwear;
+    return withoutFootwear.filter((product) => !excludeIds.has(product.id));
   };
   const live = await input.retrieveLive();
   if (live.attempted) logLiveRetrieval(live);
@@ -118,10 +124,11 @@ export async function resolveGenerationCatalog(input: {
             : `missing_${liveMissing.join('_')}`
           : 'insufficient_core_outfit';
 
-  const products =
+  const products = withoutExcluded(
     live.ok && liveProducts.length
       ? mergeCatalogProducts(liveProducts, storedProducts)
-      : storedProducts;
+      : storedProducts,
+  );
   const usedLive = live.ok && liveProducts.length > 0;
   const retrievalSource: LiveRetrievalSource = usedLive ? 'hybrid' : 'catalog_fallback';
   logLiveFallback(reason, {

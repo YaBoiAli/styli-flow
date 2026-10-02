@@ -10,6 +10,8 @@ import type { StrategyFetchedItem, StrategySearchBackend } from './types.ts';
 import { categoryPriceCeiling } from './budget.ts';
 import { normalizeChannel3Product } from '../channel3/normalize.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 
@@ -76,7 +78,7 @@ const streetTop = generateSearchQueries({ style: 'Streetwear', category: 'top' }
 assert(streetTop.some((query) => /oversized hoodie/i.test(query.text)), '2: streetwear hoodie query');
 assert(streetTop.some((query) => /graphic tee/i.test(query.text)), '2b: streetwear tee query');
 
-const nightTop = generateSearchQueries({ style: 'Night Out', category: 'top', gender: 'men' });
+const nightTop = generateSearchQueries({ occasion: 'Night Out', category: 'top', gender: 'men' });
 assert(nightTop.some((query) => /going out shirt/i.test(query.text)), '3: night out uses concrete shirt language');
 assert(!nightTop.some((query) => query.text.toLowerCase() === 'night out'), '3b: does not search raw Night Out');
 
@@ -90,6 +92,22 @@ assert(y2kMenShoes.every((query) => !/heel/i.test(query.text)), '5b: men Y2K sho
 
 const streetBottom = generateSearchQueries({ style: 'Streetwear', category: 'bottom' });
 assert(streetBottom.some((query) => /baggy jeans|cargo pants|joggers/i.test(query.text)), '6: streetwear bottoms');
+
+const partyBottoms = generateSearchQueries({ style: 'Y2K', occasion: 'Party', category: 'bottom', gender: 'men' }, 5);
+assert(partyBottoms.some((query) => query.source === 'occasion' && /party trousers|statement pants/i.test(query.text)), '6b: Party bottoms emit an occasion query');
+assert(partyBottoms.length <= 5, '6c: Party bottoms stay within maxQueries 5');
+assert(partyBottoms.some((query) => query.source === 'style'), '6d: Party bottoms keep style coverage');
+
+const partyShoes = generateSearchQueries({ style: 'Y2K', occasion: 'Party', category: 'shoes', gender: 'men' }, 5);
+assert(partyShoes.some((query) => query.source === 'occasion' && /party shoes|party loafers/i.test(query.text)), '6e: Party shoes emit an occasion query');
+assert(partyShoes.every((query) => !/heel/i.test(query.text)), '6f: men Party shoes skip heels');
+
+const nightBottoms = generateSearchQueries({ style: 'Streetwear', occasion: 'Night Out', category: 'bottom', gender: 'women' }, 5);
+assert(nightBottoms.some((query) => query.source === 'occasion' && /nightlife trousers|elevated jeans/i.test(query.text)), '6g: Night Out bottoms emit an occasion query');
+
+const nightShoes = generateSearchQueries({ style: 'Streetwear', occasion: 'Night Out', category: 'shoes', gender: 'men' }, 5);
+assert(nightShoes.some((query) => query.source === 'occasion' && /nightlife boots|night out loafers/i.test(query.text)), '6h: Night Out shoes emit an occasion query');
+assert(nightShoes.length <= 5, '6i: Night Out shoes stay within maxQueries 5');
 
 const branded = generateSearchQueries({ style: 'Y2K', category: 'top', brands: ['H&M', 'Zara'] }, 8);
 assert(branded.some((query) => query.brand === 'H&M'), '7: H&M searches are separate');

@@ -12,8 +12,10 @@ import {
   type AiOutfit,
   type ScoredOutfitCandidate,
 } from './outfitCandidates.ts';
+import type { ProductCategory } from './catalog.ts';
 import {
-  CANDIDATE_INTERPRETATION_GUIDE,
+  candidateInterpretationGuide,
+  candidateInterpretationOptions,
   REBUILD_OUTFIT_INSTRUCTION,
   candidatesShareTooManyProducts,
   countChangedPieces,
@@ -280,7 +282,7 @@ const oneBottomWinner = selectBestScoredCandidate(
     footwearPreference: 'include',
   },
 );
-assert(oneBottomWinner?.built.some((product) => product.id === 'joggers-a'), '8: one viable bottom may be reused');
+assert(oneBottomWinner?.built.some((product) => product.id === 'joggers-a') === true, '8: one viable bottom may be reused');
 
 const noShoesPrev: PreviousOutfitItem[] = previousStreet.filter((row) => row.category !== 'shoes');
 const noShoesChange = [
@@ -321,16 +323,17 @@ function outfit(ids: string[]): AiOutfit {
   };
 }
 
+function categoriesOf(products: DiversityProduct[]): ProductCategory[] {
+  return products.map((product) => product.category as ProductCategory);
+}
+
 function validateInclude(candidate: AiOutfit) {
   const products = candidate.items.map((row) => {
     const product = catalog.get(row.product_id);
     if (!product) throw new Error('invalid_ai');
     return product;
   });
-  assertValidOutfitCategories(
-    products.map((product) => product.category),
-    'include',
-  );
+  assertValidOutfitCategories(categoriesOf(products), 'include');
   return products;
 }
 
@@ -340,10 +343,7 @@ function validateNone(candidate: AiOutfit) {
     if (!product) throw new Error('invalid_ai');
     return product;
   });
-  assertValidOutfitCategories(
-    products.map((product) => product.category),
-    'none',
-  );
+  assertValidOutfitCategories(categoriesOf(products), 'none');
   assertNoForbiddenFootwear(products, 'none');
   return products;
 }
@@ -407,13 +407,47 @@ const diverseFive: AiOutfit[] = [
 ];
 assert(candidatesShareTooManyProducts(similarFive), '4: five clones are not meaningful candidate diversity');
 assert(!candidatesShareTooManyProducts(diverseFive), '4: five mixed product sets count as diverse');
+assert(
+  candidatesShareTooManyProducts([
+    outfit(['top-A', 'bottom-B', 'shoes-C']),
+    outfit(['top-A', 'bottom-B', 'shoes-F']),
+  ]),
+  '6d: 2/3 overlap with a previous rebuild outfit is a near-clone',
+);
+assert(
+  !candidatesShareTooManyProducts([
+    outfit(['top-A', 'bottom-B', 'shoes-C']),
+    outfit(['top-G', 'bottom-H', 'shoes-F']),
+  ]),
+  '6d: 1/3 overlap with a previous rebuild outfit remains eligible',
+);
+assert(
+  candidatesShareTooManyProducts([
+    outfit(['top-A', 'bottom-B']),
+    outfit(['top-A', 'bottom-C']),
+  ]),
+  '6d: No Shoes sharing one piece is a near-clone under the existing helper',
+);
 assert(uniqueProductIds(diverseFive).size >= 5, '4: diverse candidates use more than one product per slot');
-assert(CANDIDATE_INTERPRETATION_GUIDE.includes('clean/minimal'), '4: interpretation guide lists clean/minimal');
-assert(CANDIDATE_INTERPRETATION_GUIDE.includes('more relaxed/baggy'), '4: interpretation guide lists relaxed');
-assert(CANDIDATE_INTERPRETATION_GUIDE.includes('Do not invent products'), '4: interpretations may not invent products');
+const streetwearGuide = candidateInterpretationGuide('Streetwear');
+assert(streetwearGuide.includes('clean/minimal'), '4: interpretation guide lists clean/minimal');
+assert(streetwearGuide.includes('more relaxed/baggy'), '4: volume-friendly Streetwear can suggest relaxed/baggy');
+assert(
+  candidateInterpretationOptions('Streetwear').includes('color-forward'),
+  '4: intensity-friendly Streetwear can suggest color-forward',
+);
+assert(
+  !candidateInterpretationOptions('Quiet Luxury').includes('more relaxed/baggy'),
+  '4: Quiet Luxury omits baggy when volumeFriendly=false',
+);
+assert(
+  !candidateInterpretationOptions('Minimalist').includes('color-forward'),
+  '4: Minimalist omits color-forward when intensityFriendly=false',
+);
+assert(streetwearGuide.includes('Do not invent products'), '4: interpretations may not invent products');
 assert(REBUILD_OUTFIT_INSTRUCTION.includes('Prefer replacing at least two pieces'), 'rebuild instruction asks for two-piece change');
 assert(
-  CANDIDATE_INTERPRETATION_GUIDE.includes('Stay recognizably in the requested style'),
+  streetwearGuide.includes('Stay recognizably in the requested style'),
   '7: diversity must not override style',
 );
 

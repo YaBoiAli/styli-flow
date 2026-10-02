@@ -1,9 +1,13 @@
 /**
- * Outfit-level scorer comparisons. Asserts relative quality, not exact points.
+ * Outfit-level scorer comparisons. Asserts relative quality, not exact points,
+ * plus Phase 0 named scoreOutfit baselines (season pinned to fall).
+ * Dump baselines: STYLI_DUMP_SCORE_BASELINE=1 npx tsx supabase/functions/_shared/catalog/outfitScoring.test.ts
  * Run: npm run test:outfit-score
  */
-import { extractColorTokens, OUTFIT_SCORE_WEIGHTS, productStyleAffinity, scoreOutfit, UNCERTAIN_DIMENSION, type OutfitScoreItem } from './outfitScoring.ts';
+import { extractColorTokens, OUTFIT_SCORE_WEIGHTS, productStyleAffinity, scoreOutfit, UNCERTAIN_DIMENSION, type OutfitScore, type OutfitScoreItem, type OutfitScoringContext } from './outfitScoring.ts';
 import { emptyVisualAttributes, type VisualAttributes } from './visualAttributes.ts';
+
+declare const process: { env: Record<string, string | undefined>; exit(code?: number): void };
 
 let failed = 0;
 let passed = 0;
@@ -784,6 +788,560 @@ assert(
 assert(
   fairNavyTop.breakdown.skinTone > fairPeachTop.breakdown.skinTone,
   'complexion compatibility matters when enabled',
+);
+
+type ScoreBaselineSnapshot = {
+  score: number;
+  style: number;
+  color: number;
+  proportion: number;
+  skinTone: number;
+  occasion: number;
+  fit: number;
+  season: number;
+  cohesion: number;
+  issues: string[];
+  suggestions: string[];
+};
+
+function visualLook(
+  partial: Partial<VisualAttributes> & Pick<VisualAttributes, 'confidence'>,
+): VisualAttributes {
+  return {
+    ...emptyVisualAttributes(partial.confidence),
+    ...partial,
+  };
+}
+
+function scoreSnapshot(result: OutfitScore): ScoreBaselineSnapshot {
+  return {
+    score: result.score,
+    style: result.breakdown.style,
+    color: result.breakdown.color,
+    proportion: result.breakdown.proportion,
+    skinTone: result.breakdown.skinTone,
+    occasion: result.breakdown.occasion,
+    fit: result.breakdown.fit,
+    season: result.breakdown.season,
+    cohesion: result.breakdown.cohesion,
+    issues: [...result.issues],
+    suggestions: [...result.suggestions],
+  };
+}
+
+function formatScoreDump(name: string, snap: ScoreBaselineSnapshot): string {
+  const list = (label: string, values: string[]) =>
+    [`${label}:`, ...(values.length ? values.map((value) => `- ${value}`) : ['(none)'])].join('\n');
+  return [
+    `FIXTURE: ${name}`,
+    '',
+    `score: ${snap.score}`,
+    `style: ${snap.style}`,
+    `color: ${snap.color}`,
+    `proportion: ${snap.proportion}`,
+    `skinTone: ${snap.skinTone}`,
+    `occasion: ${snap.occasion}`,
+    `fit: ${snap.fit}`,
+    `season: ${snap.season}`,
+    `cohesion: ${snap.cohesion}`,
+    '',
+    list('issues', snap.issues),
+    '',
+    list('suggestions', snap.suggestions),
+  ].join('\n');
+}
+
+function assertScoreBaseline(
+  name: string,
+  items: OutfitScoreItem[],
+  context: OutfitScoringContext,
+  expected: ScoreBaselineSnapshot,
+): void {
+  const result = scoreOutfit(items, {
+    season: 'fall',
+    colorPreference: 'style_first',
+    ...context,
+  });
+  const snap = scoreSnapshot(result);
+  if (process.env.STYLI_DUMP_SCORE_BASELINE === '1') {
+    console.log(formatScoreDump(name, snap));
+    console.log('');
+  }
+  const same = JSON.stringify(snap) === JSON.stringify(expected);
+  if (!same) {
+    console.error(`FAIL: scoring baseline ${name}`);
+    console.error('--- current ---');
+    console.error(formatScoreDump(name, snap));
+    console.error('--- baseline ---');
+    console.error(formatScoreDump(name, expected));
+  }
+  assert(same, `scoring baseline ${name} matches frozen scoreOutfit output`);
+}
+
+const zipHoodie = item({
+  category: 'top',
+  name: 'Black Zip Hoodie',
+  color: 'black',
+  colors: ['black'],
+  material: 'cotton',
+  subcategory: 'hoodie',
+  fit: 'oversized',
+  silhouette: 'oversized',
+  pattern: 'solid',
+  formality: 'casual',
+  style_tags: ['streetwear'],
+  aesthetic_tags: ['streetwear'],
+  occasion_tags: ['everyday'],
+  season_tags: ['all_season'],
+});
+
+const baggyJeans = item({
+  category: 'bottom',
+  name: 'Baggy Denim Jeans',
+  color: 'blue',
+  colors: ['blue'],
+  material: 'denim',
+  subcategory: 'jeans',
+  fit: 'loose',
+  silhouette: 'baggy',
+  pattern: 'solid',
+  formality: 'casual',
+  style_tags: ['streetwear'],
+  occasion_tags: ['everyday', 'school'],
+  season_tags: ['all_season'],
+});
+
+const skateSneakers = item({
+  category: 'shoes',
+  name: 'Skate Sneakers',
+  color: 'black',
+  colors: ['black'],
+  material: 'canvas',
+  subcategory: 'sneakers',
+  fit: 'regular',
+  silhouette: 'regular',
+  formality: 'casual',
+  style_tags: ['streetwear'],
+  occasion_tags: ['everyday'],
+  season_tags: ['all_season'],
+});
+
+const rhinestoneBabyTee = item({
+  category: 'top',
+  name: 'Rhinestone Metallic Baby Tee',
+  color: 'silver',
+  colors: ['silver', 'metallic'],
+  material: 'polyester',
+  subcategory: 't-shirt',
+  fit: 'fitted',
+  silhouette: 'cropped',
+  pattern: 'graphic',
+  formality: 'casual',
+  style_tags: ['y2k'],
+  aesthetic_tags: ['y2k'],
+  occasion_tags: ['party', 'night out'],
+  season_tags: ['all_season'],
+  visual_attributes: visualLook({
+    confidence: 0.88,
+    primary_color: 'silver',
+    color_family: 'silver',
+    saturation: 'high',
+    fit: 'fitted',
+    silhouette: 'cropped',
+    pattern: 'graphic',
+    visual_intensity: 8,
+    material_appearance: 'silky',
+    aesthetics: ['y2k'],
+  }),
+});
+
+const lowRiseFlareJeans = item({
+  category: 'bottom',
+  name: 'Low Rise Flare Jeans',
+  color: 'blue',
+  colors: ['blue'],
+  material: 'denim',
+  subcategory: 'jeans',
+  fit: 'slim',
+  silhouette: 'low_rise',
+  pattern: 'solid',
+  formality: 'casual',
+  style_tags: ['y2k'],
+  aesthetic_tags: ['y2k'],
+  occasion_tags: ['party'],
+  season_tags: ['all_season'],
+  visual_attributes: visualLook({
+    confidence: 0.84,
+    primary_color: 'blue',
+    color_family: 'blue',
+    fit: 'slim',
+    silhouette: 'wide',
+    aesthetics: ['y2k'],
+  }),
+});
+
+const platformSneakers = item({
+  category: 'shoes',
+  name: 'Chunky Platform Sneakers',
+  color: 'white',
+  colors: ['white'],
+  material: 'leather',
+  subcategory: 'sneakers',
+  fit: 'regular',
+  silhouette: 'platform',
+  formality: 'casual',
+  style_tags: ['y2k'],
+  aesthetic_tags: ['y2k'],
+  occasion_tags: ['party'],
+  season_tags: ['all_season'],
+  visual_attributes: visualLook({
+    confidence: 0.8,
+    primary_color: 'white',
+    color_family: 'white',
+    silhouette: 'structured',
+    aesthetics: ['y2k'],
+  }),
+});
+
+const greyHoodie = item({
+  category: 'top',
+  name: 'Grey Oversized Hoodie',
+  color: 'grey',
+  colors: ['grey'],
+  material: 'cotton',
+  subcategory: 'hoodie',
+  fit: 'oversized',
+  silhouette: 'oversized',
+  formality: 'casual',
+  style_tags: ['streetwear'],
+  aesthetic_tags: ['streetwear'],
+  occasion_tags: ['everyday', 'school'],
+  season_tags: ['all_season'],
+});
+
+const cashmereCrew = item({
+  category: 'top',
+  name: 'Camel Cashmere Crew',
+  color: 'camel',
+  colors: ['camel'],
+  material: 'cashmere',
+  subcategory: 'sweater',
+  fit: 'regular',
+  silhouette: 'regular',
+  formality: 'smart_casual',
+  style_tags: ['quiet luxury', 'old money'],
+  aesthetic_tags: ['quiet_luxury'],
+  occasion_tags: ['everyday', 'work'],
+  season_tags: ['fall', 'winter'],
+});
+
+const tailoredTrousers = item({
+  category: 'bottom',
+  name: 'Ivory Tailored Trousers',
+  color: 'ivory',
+  colors: ['ivory'],
+  material: 'wool',
+  subcategory: 'trousers',
+  fit: 'slim',
+  silhouette: 'straight',
+  formality: 'smart_casual',
+  style_tags: ['quiet luxury'],
+  aesthetic_tags: ['quiet_luxury'],
+  occasion_tags: ['everyday', 'work'],
+  season_tags: ['fall'],
+});
+
+const suedeLoafers = item({
+  category: 'shoes',
+  name: 'Tan Suede Loafers',
+  color: 'tan',
+  colors: ['tan'],
+  material: 'suede',
+  subcategory: 'loafers',
+  formality: 'smart_casual',
+  style_tags: ['quiet luxury', 'old money'],
+  occasion_tags: ['everyday', 'work'],
+  season_tags: ['all_season'],
+});
+
+const whiteDressShirt = item({
+  category: 'top',
+  name: 'White Dress Shirt',
+  color: 'white',
+  colors: ['white'],
+  material: 'cotton',
+  subcategory: 'shirt',
+  fit: 'slim',
+  silhouette: 'regular',
+  formality: 'formal',
+  style_tags: ['formal'],
+  aesthetic_tags: ['formal'],
+  occasion_tags: ['event', 'work'],
+  season_tags: ['all_season'],
+});
+
+const charcoalSuitPants = item({
+  category: 'bottom',
+  name: 'Charcoal Suit Trousers',
+  color: 'charcoal',
+  colors: ['charcoal'],
+  material: 'wool',
+  subcategory: 'trousers',
+  fit: 'slim',
+  silhouette: 'straight',
+  formality: 'formal',
+  style_tags: ['formal'],
+  occasion_tags: ['event', 'work'],
+  season_tags: ['fall', 'winter'],
+});
+
+const blackOxfords = item({
+  category: 'shoes',
+  name: 'Black Leather Oxfords',
+  color: 'black',
+  colors: ['black'],
+  material: 'leather',
+  subcategory: 'oxfords',
+  formality: 'formal',
+  style_tags: ['formal'],
+  occasion_tags: ['event'],
+  season_tags: ['all_season'],
+});
+
+const navyKnit = item({
+  category: 'top',
+  name: 'Navy Fine Knit',
+  color: 'navy',
+  colors: ['navy'],
+  material: 'merino',
+  subcategory: 'sweater',
+  fit: 'regular',
+  silhouette: 'regular',
+  formality: 'casual',
+  style_tags: ['minimalist'],
+  occasion_tags: ['everyday'],
+  season_tags: ['all_season'],
+});
+
+const stoneTrousers = item({
+  category: 'bottom',
+  name: 'Stone Straight Trousers',
+  color: 'stone',
+  colors: ['stone'],
+  material: 'cotton',
+  subcategory: 'trousers',
+  fit: 'regular',
+  silhouette: 'straight',
+  formality: 'casual',
+  style_tags: ['minimalist'],
+  occasion_tags: ['everyday'],
+  season_tags: ['all_season'],
+});
+
+const rebuildHoodie = item({
+  category: 'top',
+  name: 'Charcoal Zip Hoodie',
+  color: 'charcoal',
+  colors: ['charcoal'],
+  material: 'cotton',
+  subcategory: 'hoodie',
+  fit: 'oversized',
+  silhouette: 'oversized',
+  formality: 'casual',
+  style_tags: ['streetwear'],
+  aesthetic_tags: ['streetwear'],
+  occasion_tags: ['everyday'],
+  season_tags: ['all_season'],
+});
+
+const rebuildJeans = item({
+  category: 'bottom',
+  name: 'Washed Baggy Jeans',
+  color: 'blue',
+  colors: ['blue'],
+  material: 'denim',
+  subcategory: 'jeans',
+  fit: 'loose',
+  silhouette: 'baggy',
+  formality: 'casual',
+  style_tags: ['streetwear'],
+  occasion_tags: ['everyday'],
+  season_tags: ['all_season'],
+});
+
+const rebuildSneakers = item({
+  category: 'shoes',
+  name: 'White Skate Sneakers',
+  color: 'white',
+  colors: ['white'],
+  subcategory: 'sneakers',
+  formality: 'casual',
+  style_tags: ['streetwear'],
+  occasion_tags: ['everyday'],
+  season_tags: ['all_season'],
+});
+
+const y2kParty = { style: 'Y2K', occasion: 'Party' } as const;
+const streetWork = { style: 'Streetwear', occasion: 'Work' } as const;
+const quietEveryday = { style: 'Quiet Luxury', occasion: 'Everyday' } as const;
+const formalEvent = { style: 'Formal', occasion: 'Event' } as const;
+const streetEverydayCtx = { style: 'Streetwear', occasion: 'Everyday' } as const;
+
+assertScoreBaseline(
+  'generic-y2k-party',
+  [zipHoodie, baggyJeans, skateSneakers],
+  y2kParty,
+  {
+    score: 72,
+    style: 38,
+    color: 92,
+    proportion: 84,
+    skinTone: 70,
+    occasion: 68,
+    fit: 70,
+    season: 92,
+    cohesion: 74,
+    issues: [
+      'The outfit has weak visual connection to the requested style.',
+      'Outfit does not show the requested occasion.',
+    ],
+    suggestions: [
+      'Lean on pieces whose tags or cuts match the requested vibe.',
+      'Add a piece that reads as the requested occasion, not only a matching formality.',
+    ],
+  },
+);
+assertScoreBaseline(
+  'visible-y2k-party',
+  [rhinestoneBabyTee, lowRiseFlareJeans, platformSneakers],
+  y2kParty,
+  {
+    score: 83,
+    style: 90,
+    color: 92,
+    proportion: 68,
+    skinTone: 70,
+    occasion: 94,
+    fit: 70,
+    season: 92,
+    cohesion: 88,
+    issues: [],
+    suggestions: [],
+  },
+);
+assertScoreBaseline(
+  'generic-streetwear-work',
+  [greyHoodie, baggyJeans, skateSneakers],
+  streetWork,
+  {
+    score: 80,
+    style: 90,
+    color: 92,
+    proportion: 84,
+    skinTone: 70,
+    occasion: 42,
+    fit: 70,
+    season: 92,
+    cohesion: 74,
+    issues: [
+      'Outfit formality does not match the requested occasion.',
+      'Outfit does not show the requested occasion.',
+    ],
+    suggestions: [
+      'Choose pieces whose formality matches the occasion.',
+      'Add a piece that reads as the requested occasion, not only a matching formality.',
+    ],
+  },
+);
+assertScoreBaseline(
+  'quiet-luxury-everyday',
+  [cashmereCrew, tailoredTrousers, suedeLoafers],
+  quietEveryday,
+  {
+    score: 87,
+    style: 90,
+    color: 94,
+    proportion: 84,
+    skinTone: 70,
+    occasion: 94,
+    fit: 70,
+    season: 92,
+    cohesion: 90,
+    issues: [],
+    suggestions: [],
+  },
+);
+assertScoreBaseline(
+  'formal-event',
+  [whiteDressShirt, charcoalSuitPants, blackOxfords],
+  formalEvent,
+  {
+    score: 86,
+    style: 90,
+    color: 94,
+    proportion: 84,
+    skinTone: 70,
+    occasion: 98,
+    fit: 70,
+    season: 92,
+    cohesion: 80,
+    issues: [],
+    suggestions: [],
+  },
+);
+assertScoreBaseline(
+  'no-shoes-minimalist-everyday',
+  [navyKnit, stoneTrousers],
+  { style: 'Minimalist', occasion: 'Everyday', footwearPreference: 'none' },
+  {
+    score: 81,
+    style: 78,
+    color: 94,
+    proportion: 84,
+    skinTone: 70,
+    occasion: 86,
+    fit: 70,
+    season: 86,
+    cohesion: 64,
+    issues: [],
+    suggestions: [],
+  },
+);
+assertScoreBaseline(
+  'rebuild-previous-streetwear-everyday',
+  [zipHoodie, baggyJeans, skateSneakers],
+  streetEverydayCtx,
+  {
+    score: 86,
+    style: 90,
+    color: 92,
+    proportion: 84,
+    skinTone: 70,
+    occasion: 94,
+    fit: 70,
+    season: 92,
+    cohesion: 80,
+    issues: [],
+    suggestions: [],
+  },
+);
+assertScoreBaseline(
+  'rebuild-candidate-streetwear-everyday',
+  [rebuildHoodie, rebuildJeans, rebuildSneakers],
+  streetEverydayCtx,
+  {
+    score: 86,
+    style: 90,
+    color: 92,
+    proportion: 84,
+    skinTone: 70,
+    occasion: 94,
+    fit: 70,
+    season: 92,
+    cohesion: 80,
+    issues: [],
+    suggestions: [],
+  },
 );
 
 if (failed) {

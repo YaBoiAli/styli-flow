@@ -19,7 +19,7 @@ function envGet(name: string): string | undefined {
 const CASES: SearchIntent[] = [
   { style: 'Y2K', category: 'top', budget: 150 },
   { style: 'Streetwear', category: 'top', budget: 150 },
-  { style: 'Night Out', category: 'top', gender: 'men', budget: 150 },
+  { occasion: 'Night Out', category: 'top', gender: 'men', budget: 150 },
   { style: 'Y2K', category: 'shoes', gender: 'men', budget: 150, shoeBudget: 120 },
   { style: 'Streetwear', category: 'bottom', budget: 150 },
   { style: 'Y2K', category: 'top', brands: ['H&M', 'Zara'], budget: 150 },

@@ -20,6 +20,8 @@ import { clampChannel3Limit, parseChannel3SyncParams } from './sync.ts';
 import { Channel3Error, reasonForStatus, type Channel3Product } from './types.ts';
 import { dedupeNormalizedProducts } from '../ingest.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 

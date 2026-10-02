@@ -7,6 +7,8 @@ import { scoreOutfit } from '../_shared/catalog/outfitScoring.ts';
 import type { CatalogProduct } from './catalog.ts';
 import { toFashionResponseFields } from './attachFashionScore.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 

@@ -1,3 +1,4 @@
+import { candidatesShareTooManyProducts } from '../../generate-outfit/outfitDiversity.ts';
 import type { OutfitScore } from '../catalog/outfitScoring.ts';
 import { logPerf, perfNow } from '../perfLog.ts';
 import type { CriticRunResult } from './critiqueWinningOutfit.ts';
@@ -76,6 +77,8 @@ export async function applyOutfitRevision<TBuilt, TProduct>(params: {
   score: (products: TProduct[]) => OutfitScore;
   critique: (input: FashionCriticInput) => Promise<CriticRunResult>;
   criticInputFor: (products: TProduct[]) => FashionCriticInput;
+  /** Rebuild only. Empty/omitted means first generation — no diversity compare. */
+  previousOutfitItems?: Array<{ product_id: string }>;
 }): Promise<RevisionApplyResult<TBuilt, TProduct>> {
   const keepOriginal = (
     reason: string,
@@ -159,7 +162,9 @@ export async function applyOutfitRevision<TBuilt, TProduct>(params: {
   } catch (err) {
     logPerf('revision_validation', perfNow() - revisionValidationStarted);
     const reason = err instanceof Error ? err.message : 'validation_failed';
-    return keepOriginal(reason === 'budget' ? 'budget' : 'validation_failed');
+    return keepOriginal(
+      reason === 'budget' || reason === 'gender_mismatch' ? reason : 'validation_failed',
+    );
   }
 
   let products: TProduct[];
@@ -179,6 +184,17 @@ export async function applyOutfitRevision<TBuilt, TProduct>(params: {
 
   if (!shouldAcceptRevision(params.original.fashion, fashion)) {
     return keepOriginal('insufficient_improvement', {
+      revised_score: fashion.score,
+      changed_items: changedItems,
+    });
+  }
+
+  const previousOutfitItems = (params.previousOutfitItems ?? []).filter((item) => item.product_id);
+  if (
+    previousOutfitItems.length &&
+    candidatesShareTooManyProducts([{ items: previousOutfitItems }, { items }])
+  ) {
+    return keepOriginal('rebuild_diversity', {
       revised_score: fashion.score,
       changed_items: changedItems,
     });

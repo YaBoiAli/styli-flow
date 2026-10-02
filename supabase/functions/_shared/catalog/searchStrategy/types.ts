@@ -1,34 +1,11 @@
 import type { NormalizedProduct, ProductCategory, ProductGender } from '../types.ts';
+import type { Occasion, Style } from '../../../../../types/index.ts';
 
-export type SearchStyle =
-  | 'Y2K'
-  | 'Streetwear'
-  | 'Night Out'
-  | 'Old Money'
-  | 'Minimalist'
-  | 'Casual'
-  | 'Athleisure'
-  | 'Grunge'
-  | 'Preppy'
-  | 'Formal'
-  | 'Business Casual'
-  | 'Runway'
-  | 'Vintage'
-  | 'Cottagecore'
-  | 'Goth'
-  | 'Coquette'
-  | 'Clean Girl';
+/** UI-facing search styles. Same set as types/index.ts Style. */
+export type SearchStyle = Style;
 
-export type SearchOccasion =
-  | 'Everyday'
-  | 'Night Out'
-  | 'Date'
-  | 'Work'
-  | 'School'
-  | 'Formal Event'
-  | 'Party'
-  | 'Vacation'
-  | 'Workout';
+/** UI-facing search occasions. Same set as types/index.ts Occasion. Night Out is an occasion only. */
+export type SearchOccasion = Occasion;
 
 export type SearchIntent = {
   style?: string;

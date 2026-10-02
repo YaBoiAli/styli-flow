@@ -17,6 +17,8 @@ import { selectVisualAnalysisTargets } from '../_shared/catalog/visualAttributes
 import { evaluateOutfitCandidates, parseGeminiOutfitCandidates } from './outfitCandidates.ts';
 import type { CatalogProduct } from './catalog.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 

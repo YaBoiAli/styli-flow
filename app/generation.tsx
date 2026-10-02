@@ -18,6 +18,7 @@ import {
   generateOutfit,
   OutfitGenerationError,
 } from '@/lib/generateOutfit';
+import { excludeProductIdsFromPrevious } from '@/lib/rebuildExclusion';
 
 const LOADING_MESSAGES = [
   'Finding your vibe...',
@@ -114,7 +115,7 @@ export default function GenerationScreen() {
           occasion: selectedOccasion!,
           budget: selectedBudget!,
           shoeBudget: footwearPreference === 'none' || shoesInBudget ? null : shoeBudget,
-          excludeProductIds: [],
+          excludeProductIds: excludeProductIdsFromPrevious(previous),
           previousOutfitProductIds: previous.map((item) => item.productId),
           previousOutfit: previous.map((item) => ({
             product_id: item.productId,

@@ -26,6 +26,7 @@ import {
   type FootwearPreference,
   isFootwearProduct,
 } from './footwearPreference.ts';
+import { scoreVisualCandidateRelevance } from './visualCandidateRanking.ts';
 
 export type BudgetPlan = {
   outfit: number;
@@ -34,8 +35,9 @@ export type BudgetPlan = {
 };
 
 export const TOP_PICKS_PER_CATEGORY = 7;
-/** Ranked pool fed to visual analysis before the final Gemini shortlist. */
-export const VISUAL_RANK_PER_CATEGORY = 12;
+/** Broader text pool (final shortlist × 2) fed to visual analysis. */
+export const VISUAL_POOL_MULTIPLIER = 2;
+export const VISUAL_RANK_PER_CATEGORY = TOP_PICKS_PER_CATEGORY * VISUAL_POOL_MULTIPLIER;
 const OPTIONAL_CATEGORIES: ProductCategory[] = ['outerwear', 'accessory'];
 const MIN_STYLE_SCORE = 2;
 /** After min-style focus, do not re-cut on keyword-score gaps (missing tags ≠ low quality). */
@@ -138,6 +140,28 @@ export function candidateScore(
   );
 }
 
+function rankingScore(
+  product: CatalogProduct,
+  style: string,
+  styleTags: string[],
+  occasion: string,
+  skinTone: SkinTonePreference | null,
+  colorPreference: ColorPreference,
+  previousOutfit: PreviousOutfitItem[],
+  visualAware: boolean,
+): number {
+  const text = candidateScore(
+    product,
+    styleTags,
+    occasion,
+    skinTone,
+    colorPreference,
+    previousOutfit,
+  );
+  if (!visualAware) return text;
+  return text + scoreVisualCandidateRelevance(product, style, occasion);
+}
+
 function hardFilteredPool(
   products: CatalogProduct[],
   style: string,
@@ -236,6 +260,8 @@ export type RankWorkingPoolInput = {
   colorPreference: ColorPreference;
   previousOutfit?: PreviousOutfitItem[];
   perCategory?: number;
+  /** After visual enrichment only. Never used to build the pre-visual text pool. */
+  visualAware?: boolean;
 };
 
 /**
@@ -310,9 +336,11 @@ export type ShortlistInput = RankWorkingPoolInput;
 /**
  * Final Gemini pool: quality first, then diversity among similarly strong options.
  * Rebuild previous products are kept out of the top tier when alternatives exist.
+ * When visualAware, text relevance stays primary and a bounded visual adjustment may reorder close products.
  */
 export function shortlistForGemini(input: ShortlistInput): CatalogProduct[] {
   const previousOutfit = input.previousOutfit ?? [];
+  const visualAware = Boolean(input.visualAware);
   const { styleTags, scores, grouped, tagged } = hardFilteredPool(
     input.products,
     input.style,
@@ -323,27 +351,27 @@ export function shortlistForGemini(input: ShortlistInput): CatalogProduct[] {
     input.footwearPreference,
     input.colorPreference,
   );
+  const scoreOf = (product: CatalogProduct) =>
+    rankingScore(
+      product,
+      input.style,
+      styleTags,
+      input.occasion,
+      input.skinTone,
+      input.colorPreference,
+      previousOutfit,
+      visualAware,
+    );
   const trimmed: CatalogProduct[] = [];
   for (const category of categoryList(input.footwearPreference)) {
     const ranked = [...grouped[category]].sort(
-      (a, b) =>
-        candidateScore(b, styleTags, input.occasion, input.skinTone, input.colorPreference, previousOutfit) -
-          candidateScore(a, styleTags, input.occasion, input.skinTone, input.colorPreference, previousOutfit) ||
-        asNumber(a.price) - asNumber(b.price),
+      (a, b) => scoreOf(b) - scoreOf(a) || asNumber(a.price) - asNumber(b.price),
     );
     const focused = focusedForCategory(ranked, scores, tagged);
     trimmed.push(
       ...spreadAcrossGroups(
         focused,
-        (product) =>
-          candidateScore(
-            product,
-            styleTags,
-            input.occasion,
-            input.skinTone,
-            input.colorPreference,
-            previousOutfit,
-          ),
+        scoreOf,
         TOP_PICKS_PER_CATEGORY,
         FOCUSED_QUALITY_BAND,
         previousOutfit.length

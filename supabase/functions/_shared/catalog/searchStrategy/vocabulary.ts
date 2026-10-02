@@ -1,149 +1,20 @@
 import type { ProductCategory, ProductGender } from '../types.ts';
+import { all, men, women, type QueryConcept } from '../queryConcepts.ts';
+import { uiOccasionConceptMap, uiStyleConceptMap } from '../styleOccasionContract.ts';
 
-export type QueryConcept = {
-  phrase: string;
-  categories: ProductCategory[];
-  genders?: ProductGender[];
-};
+export type { QueryConcept } from '../queryConcepts.ts';
 
-function all(phrase: string, ...categories: ProductCategory[]): QueryConcept {
-  return { phrase, categories };
-}
-
-function men(phrase: string, ...categories: ProductCategory[]): QueryConcept {
-  return { phrase, categories, genders: ['men'] };
-}
-
-function women(phrase: string, ...categories: ProductCategory[]): QueryConcept {
-  return { phrase, categories, genders: ['women'] };
-}
-
-export const STYLE_CONCEPTS: Record<string, QueryConcept[]> = {
-  y2k: [
-    all('Y2K 2000s graphic tee', 'top'),
-    all('Y2K oversized tee', 'top'),
-    all('Y2K vintage wash tee', 'top'),
-    all('Y2K zip hoodie', 'top'),
-    all('Y2K graphic shirt', 'top'),
-    women('Y2K baby tee', 'top'),
-    women('Y2K cropped top', 'top'),
-    all('Y2K baggy jeans', 'bottom'),
-    women('Y2K low rise jeans', 'bottom'),
-    all('Y2K cargo pants', 'bottom'),
-    all('Y2K skate sneakers', 'shoes'),
-    men('Y2K chunky sneakers', 'shoes'),
-    all('Y2K platform sneakers', 'shoes'),
-    women('Y2K platform heels', 'shoes'),
-    women('Y2K platform shoes', 'shoes'),
-    all('Y2K zip hoodie jacket', 'outerwear'),
-    all('Y2K shoulder bag', 'accessory'),
-  ],
-  streetwear: [
-    all('streetwear oversized hoodie', 'top'),
-    all('streetwear graphic tee', 'top'),
-    all('streetwear heavyweight tee', 'top'),
-    all('streetwear oversized tee', 'top'),
-    all('streetwear zip hoodie', 'top'),
-    all('streetwear boxy tee', 'top'),
-    all('streetwear relaxed fit shirt', 'top'),
-    all('streetwear baggy jeans', 'bottom'),
-    all('streetwear cargo pants', 'bottom'),
-    all('streetwear joggers', 'bottom'),
-    all('streetwear sneakers', 'shoes'),
-    all('chunky sneakers streetwear', 'shoes'),
-    all('streetwear bomber jacket', 'outerwear'),
-    all('streetwear cap', 'accessory'),
-  ],
-  'night out': [
-    men('fitted going out shirt', 'top'),
-    men('nightlife dress shirt', 'top'),
-    men('party camp collar shirt', 'top'),
-    men('evening knit polo', 'top'),
-    men('satin club shirt', 'top'),
-    men('cuban collar party shirt', 'top'),
-    men('statement dinner shirt', 'top'),
-    all('elevated casual shirt', 'top'),
-    women('going out top', 'top'),
-    women('satin party top', 'top'),
-    women('nightlife top', 'top'),
-    women('date night top', 'top'),
-    women('statement going out top', 'top'),
-    all('fitted black shirt', 'top'),
-    all('dark slim jeans', 'bottom'),
-    women('going out mini skirt', 'bottom'),
-    men('leather sneakers', 'shoes'),
-    women('going out heels', 'shoes'),
-    all('night out boots', 'shoes'),
-    all('leather jacket', 'outerwear'),
-  ],
-  'old money': [
-    men('oxford shirt', 'top'),
-    men('cashmere sweater', 'top'),
-    men('polo shirt', 'top'),
-    women('silk blouse', 'top'),
-    women('cashmere knit top', 'top'),
-    all('tailored trousers', 'bottom'),
-    all('chinos', 'bottom'),
-    all('leather loafers', 'shoes'),
-    all('wool blazer', 'outerwear'),
-  ],
-  minimalist: [
-    all('minimalist crew tee', 'top'),
-    all('plain heavyweight tee', 'top'),
-    all('clean knit sweater', 'top'),
-    all('straight leg jeans', 'bottom'),
-    all('minimalist sneakers', 'shoes'),
-    all('unstructured blazer', 'outerwear'),
-  ],
-  casual: [
-    all('casual crew tee', 'top'),
-    all('casual hoodie', 'top'),
-    all('everyday shirt', 'top'),
-    all('casual jeans', 'bottom'),
-    all('casual sneakers', 'shoes'),
-  ],
-  athleisure: [
-    all('performance hoodie', 'top'),
-    all('training tee', 'top'),
-    all('joggers', 'bottom'),
-    all('running sneakers', 'shoes'),
-    all('track jacket', 'outerwear'),
-  ],
-  grunge: [
-    all('flannel shirt', 'top'),
-    all('oversized band tee', 'top'),
-    all('ripped jeans', 'bottom'),
-    all('combat boots', 'shoes'),
-    all('leather jacket', 'outerwear'),
-  ],
-  preppy: [
-    all('polo shirt', 'top'),
-    men('oxford button down', 'top'),
-    all('cable knit sweater', 'top'),
-    all('chinos', 'bottom'),
-    all('loafers', 'shoes'),
-  ],
-  formal: [
-    men('dress shirt', 'top'),
-    women('formal blouse', 'top'),
-    all('tailored trousers', 'bottom'),
-    men('dress shoes', 'shoes'),
-    women('dress heels', 'shoes'),
-    all('suit jacket', 'outerwear'),
-  ],
+/**
+ * Non-UI retrieval vocab. Not in types/index.ts Style/Occasion.
+ * Kept so legacy/internal lookups still resolve. Do not add these to SearchStyle.
+ */
+const INTERNAL_NON_UI_STYLE_CONCEPTS: Record<string, QueryConcept[]> = {
   'business casual': [
     men('button up shirt', 'top'),
     women('work blouse', 'top'),
     all('chinos', 'bottom'),
     all('loafers', 'shoes'),
     all('casual blazer', 'outerwear'),
-  ],
-  runway: [
-    all('statement shirt', 'top'),
-    all('sculpted top', 'top'),
-    all('tailored wide pants', 'bottom'),
-    all('platform sneakers', 'shoes'),
-    all('structured jacket', 'outerwear'),
   ],
   vintage: [
     all('vintage wash tee', 'top'),
@@ -169,66 +40,24 @@ export const STYLE_CONCEPTS: Record<string, QueryConcept[]> = {
     women('mini skirt', 'bottom'),
     women('ballet flats', 'shoes'),
   ],
-  'clean girl': [
-    all('ribbed tank', 'top'),
-    all('neutral knit top', 'top'),
-    all('straight jeans', 'bottom'),
-    all('clean sneakers', 'shoes'),
-  ],
 };
 
-export const OCCASION_CONCEPTS: Record<string, QueryConcept[]> = {
-  everyday: [
-    all('everyday tee', 'top'),
-    all('everyday jeans', 'bottom'),
-    all('everyday sneakers', 'shoes'),
-  ],
-  'night out': [
-    men('fitted going out shirt', 'top'),
-    men('party camp collar shirt', 'top'),
-    women('going out top', 'top'),
-    women('satin party top', 'top'),
-    all('nightlife dress shirt', 'top'),
-    all('elevated casual shirt', 'top'),
-  ],
-  date: [
-    all('date night shirt', 'top'),
-    women('date night top', 'top'),
-    all('slim jeans', 'bottom'),
-    all('chelsea boots', 'shoes'),
-  ],
-  work: [
-    men('work shirt', 'top'),
-    women('work blouse', 'top'),
-    all('work trousers', 'bottom'),
-    all('loafers', 'shoes'),
-  ],
-  school: [
-    all('school hoodie', 'top'),
-    all('school jeans', 'bottom'),
-    all('school sneakers', 'shoes'),
-  ],
-  'formal event': [
-    men('formal dress shirt', 'top'),
-    women('event blouse', 'top'),
-    all('formal trousers', 'bottom'),
-    men('dress shoes', 'shoes'),
-  ],
-  party: [
-    all('party shirt', 'top'),
-    women('party top', 'top'),
-    all('statement top', 'top'),
-  ],
-  vacation: [
-    all('linen vacation shirt', 'top'),
-    all('vacation shorts', 'bottom'),
-    all('sandals', 'shoes'),
-  ],
+const INTERNAL_NON_UI_OCCASION_CONCEPTS: Record<string, QueryConcept[]> = {
   workout: [
     all('training tee', 'top'),
     all('workout joggers', 'bottom'),
     all('training sneakers', 'shoes'),
   ],
+};
+
+export const STYLE_CONCEPTS: Record<string, QueryConcept[]> = {
+  ...uiStyleConceptMap(),
+  ...INTERNAL_NON_UI_STYLE_CONCEPTS,
+};
+
+export const OCCASION_CONCEPTS: Record<string, QueryConcept[]> = {
+  ...uiOccasionConceptMap(),
+  ...INTERNAL_NON_UI_OCCASION_CONCEPTS,
 };
 
 export const CATEGORY_TERMS: Record<ProductCategory, string[]> = {

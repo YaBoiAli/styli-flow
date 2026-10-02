@@ -9,6 +9,8 @@ import { scoreQueryRelevance, parseQueryIntent } from './queryIntent.ts';
 import { hardFilterReason } from './run.ts';
 import { isMarketplaceRetailer, scoreCatalogRelevance, sourceQualityScore } from './score.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 
@@ -110,7 +112,7 @@ assert(hardFilterReason(menSneakers, { style: 'Y2K', category: 'shoes', gender: 
 const womenShoeQueries = generateSearchQueries({ style: 'Y2K', category: 'shoes', gender: 'women' });
 assert(womenShoeQueries.some((query) => /heel|platform/i.test(query.text)), 'gender: women Y2K shoes may use women footwear terms');
 
-const nightIntent = { style: 'Night Out', category: 'top' as const, gender: 'men' as const };
+const nightIntent = { occasion: 'Night Out', category: 'top' as const, gender: 'men' as const };
 const goingOut = product({
   product_name: 'Satin Fitted Going Out Shirt',
   subcategory: 'shirt',
@@ -202,6 +204,76 @@ assert(styleWalmart < noStyleWalmart, 'marketplace: penalty applies when fashion
 const walmartRank = scoreCatalogRelevance(walmart, { style: 'Y2K', category: 'top' }, 'Y2K graphic tee');
 const zaraRank = scoreCatalogRelevance(zara, { style: 'Y2K', category: 'top' }, 'Y2K graphic tee');
 assert(zaraRank.score > walmartRank.score, 'marketplace: similar tees, Zara outranks Walmart');
+
+const partyBottomIntent = { style: 'Streetwear', occasion: 'Party', category: 'bottom' as const, gender: 'men' as const };
+const partyBottomQuery = generateSearchQueries(partyBottomIntent, 5).find((query) => query.source === 'occasion');
+assert(Boolean(partyBottomQuery), 'party bottoms: occasion query is generated');
+const partyTrousers = product({
+  product_name: 'Black Leather Statement Party Trousers',
+  category: 'bottom',
+  subcategory: 'trousers',
+  description: 'satin statement party trousers',
+  gender: 'men',
+});
+const genericBottoms = product({
+  product_name: 'Everyday Cotton Jeans',
+  category: 'bottom',
+  subcategory: 'jeans',
+  description: 'plain everyday denim',
+  gender: 'men',
+});
+const partyBottomScore = scoreCatalogRelevance(partyTrousers, partyBottomIntent, partyBottomQuery!.text);
+const genericBottomScore = scoreCatalogRelevance(genericBottoms, partyBottomIntent, partyBottomQuery!.text);
+assert(partyBottomScore.score > genericBottomScore.score, 'party bottoms: party-specific trousers outrank generic jeans');
+
+const partyShoeIntent = { style: 'Streetwear', occasion: 'Party', category: 'shoes' as const, gender: 'men' as const };
+const partyShoeQuery = generateSearchQueries(partyShoeIntent, 5).find((query) => query.source === 'occasion');
+assert(Boolean(partyShoeQuery), 'party shoes: occasion query is generated');
+const partyFootwear = product({
+  product_name: 'Black Leather Party Shoes',
+  category: 'shoes',
+  subcategory: 'loafers',
+  description: 'statement party loafers',
+  gender: 'men',
+});
+const genericFootwear = product({
+  product_name: 'Everyday Canvas Sneakers',
+  category: 'shoes',
+  subcategory: 'sneakers',
+  description: 'plain everyday sneakers',
+  gender: 'men',
+});
+const partyShoeScore = scoreCatalogRelevance(partyFootwear, partyShoeIntent, partyShoeQuery!.text);
+const genericShoeScore = scoreCatalogRelevance(genericFootwear, partyShoeIntent, partyShoeQuery!.text);
+assert(partyShoeScore.score > genericShoeScore.score, 'party shoes: party footwear outranks generic sneakers');
+
+const nightBottomIntent = { style: 'Streetwear', occasion: 'Night Out', category: 'bottom' as const, gender: 'men' as const };
+const nightBottomQuery = generateSearchQueries(nightBottomIntent, 5).find((query) => query.source === 'occasion');
+assert(Boolean(nightBottomQuery), 'night out bottoms: occasion query is generated');
+const nightTrousers = product({
+  product_name: 'Black Leather Nightlife Trousers',
+  category: 'bottom',
+  subcategory: 'trousers',
+  description: 'fitted nightlife trousers',
+  gender: 'men',
+});
+const nightBottomScore = scoreCatalogRelevance(nightTrousers, nightBottomIntent, nightBottomQuery!.text);
+const nightGenericBottomScore = scoreCatalogRelevance(genericBottoms, nightBottomIntent, nightBottomQuery!.text);
+assert(nightBottomScore.score > nightGenericBottomScore.score, 'night out bottoms: nightlife trousers outrank generic jeans');
+
+const nightShoeIntent = { style: 'Streetwear', occasion: 'Night Out', category: 'shoes' as const, gender: 'men' as const };
+const nightShoeQuery = generateSearchQueries(nightShoeIntent, 5).find((query) => query.source === 'occasion');
+assert(Boolean(nightShoeQuery), 'night out shoes: occasion query is generated');
+const nightBoots = product({
+  product_name: 'Black Leather Nightlife Boots',
+  category: 'shoes',
+  subcategory: 'boots',
+  description: 'fitted nightlife boots',
+  gender: 'men',
+});
+const nightShoeScore = scoreCatalogRelevance(nightBoots, nightShoeIntent, nightShoeQuery!.text);
+const nightGenericShoeScore = scoreCatalogRelevance(genericFootwear, nightShoeIntent, nightShoeQuery!.text);
+assert(nightShoeScore.score > nightGenericShoeScore.score, 'night out shoes: nightlife boots outrank generic sneakers');
 
 if (failed) {
   console.error(`\n${failed} failed, ${passed} passed`);

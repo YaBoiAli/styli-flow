@@ -1,4 +1,5 @@
-import { keywordHits, OCCASION_KEYWORDS, STYLE_KEYWORDS } from '../fashionSignals.ts';
+import { keywordHits } from '../fashionSignals.ts';
+import { occasionContractFor, styleContractFor } from '../styleOccasionContract.ts';
 import type { NormalizedProduct } from '../types.ts';
 import { budgetFitScore } from './budget.ts';
 import { parseQueryIntent, scoreQueryRelevance } from './queryIntent.ts';
@@ -13,23 +14,26 @@ import {
 
 /**
  * Catalog relevance weights (not the outfit score).
- * query_relevance 0.28 — product vs the specific search that fetched it
- * product_relevance 0.22 — style / category / occasion metadata
- * budget_fit 0.15
- * brand 0.10
- * gender_fit 0.10
- * source_quality 0.10
- * quality 0.05
+ * Query-title overlap stays useful but cannot dominate contract style/occasion/category evidence.
  */
-const WEIGHTS = {
-  query_relevance: 0.28,
-  product_relevance: 0.22,
+export const CATALOG_RELEVANCE_WEIGHTS = {
+  query_relevance: 0.15,
+  product_relevance: 0.35,
   budget_fit: 0.15,
   brand: 0.1,
   gender_fit: 0.1,
   source_quality: 0.1,
   quality: 0.05,
 };
+
+/** Mix inside product_relevance. Category remains a strong guard. */
+export const PRODUCT_SIGNAL_WEIGHTS = {
+  style: 0.4,
+  category: 0.35,
+  occasion: 0.25,
+};
+
+const WEIGHTS = CATALOG_RELEVANCE_WEIGHTS;
 
 export function scoreCatalogRelevance(
   product: NormalizedProduct,
@@ -40,8 +44,8 @@ export function scoreCatalogRelevance(
     .toLowerCase();
   const styleKey = normalizeIntentKey(intent.style);
   const occasionKey = normalizeIntentKey(intent.occasion);
-  const styleWords = STYLE_KEYWORDS[styleKey] ?? STYLE_KEYWORDS[styleKey.replace(/ /g, '_')] ?? [];
-  const occasionWords = OCCASION_KEYWORDS[occasionKey] ?? OCCASION_KEYWORDS[occasionKey.replace(/ /g, '_')] ?? [];
+  const styleWords = styleContractFor(intent.style)?.scoringKeywords ?? [];
+  const occasionWords = occasionContractFor(intent.occasion)?.scoringKeywords ?? [];
 
   const style = clamp(keywordScore(productText, styleWords) + phraseBonus(productText, styleKey));
   const category = categoryScore(product, intent);
@@ -56,7 +60,11 @@ export function scoreCatalogRelevance(
     productText,
     intent,
   );
-  const productRelevance = clamp((style + category + occasion) / 3);
+  const productRelevance = clamp(
+    style * PRODUCT_SIGNAL_WEIGHTS.style +
+      category * PRODUCT_SIGNAL_WEIGHTS.category +
+      occasion * PRODUCT_SIGNAL_WEIGHTS.occasion,
+  );
   const sourceQuality = sourceQualityScore(product, intent);
 
   const breakdown: CatalogRelevanceBreakdown = {
@@ -94,7 +102,9 @@ function occasionScore(
 ): number {
   if (!occasionKey && !isNightOutIntent(intent.style, intent.occasion)) return 50;
   const key = occasionKey || 'night out';
-  const words = occasionWords.length ? occasionWords : OCCASION_KEYWORDS[key] ?? OCCASION_KEYWORDS.night_out ?? [];
+  const words = occasionWords.length
+    ? occasionWords
+    : occasionContractFor(key)?.scoringKeywords ?? [];
   const base = clamp(keywordScore(productText, words) + phraseBonus(productText, key));
   return applyNightOutSoftPenalty(base, productText, intent);
 }

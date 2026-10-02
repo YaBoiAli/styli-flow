@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { excludeProductIdsFromPrevious, nextRebuildSnapshot } from '@/lib/rebuildExclusion';
 import type {
   BodyMeasurements,
   BrandRequest,
@@ -195,20 +196,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [setGenerationError]);
 
   const prepareRebuild = useCallback(() => {
-    if (generatedOutfit) {
-      const snapshot = generatedOutfit.products.map((product) => ({
-        productId: product.id,
-        name: product.name,
-        ...(product.brand ? { brand: product.brand } : {}),
-        category: (product.category === 'footwear' ? 'shoes' : product.category) as PreviousOutfitProduct['category'],
-        ...(product.color ? { color: product.color } : {}),
-      }));
-      previousOutfitRef.current = snapshot;
-      setPreviousOutfitItems(snapshot);
-    }
+    const snapshot = nextRebuildSnapshot(previousOutfitRef.current, generatedOutfit);
+    previousOutfitRef.current = snapshot;
+    setPreviousOutfitItems(snapshot);
     rebuildPendingRef.current = true;
     setRebuildPending(true);
-    setExcludeProductIds([]);
+    setExcludeProductIds(excludeProductIdsFromPrevious(snapshot));
     setGeneratedOutfit(null);
     setGenerationError(null);
   }, [generatedOutfit, setGenerationError]);

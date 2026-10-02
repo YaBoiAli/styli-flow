@@ -40,6 +40,8 @@ import type {
   FashionRevisionResult,
 } from './types.ts';
 
+declare const process: { exit(code?: number): void };
+
 type Category = 'top' | 'bottom' | 'shoes' | 'outerwear' | 'accessory';
 
 type HarnessProduct = CatalogLike & {
@@ -422,8 +424,10 @@ async function runScenario(scenario: Scenario) {
   const originalFashion = scoreOutfit(originalProducts, CONTEXT);
 
   const counts = { critic: 0, revision: 0 };
-  let lastScored: OutfitScore | null = null;
-  let parsedRevision: FashionRevisionResult | null = null;
+  const captured: {
+    lastScored: OutfitScore | null;
+    parsedRevision: FashionRevisionResult | null;
+  } = { lastScored: null, parsedRevision: null };
 
   const provider: FashionAIProvider = {
     name: 'phase3-harness',
@@ -439,8 +443,8 @@ async function runScenario(scenario: Scenario) {
       if (scenario.revision === 'throw') throw new Error('provider_error');
       if (!scenario.revision) return null;
       const allowed = new Set(input.catalog.map((entry) => entry.product_id));
-      parsedRevision = parseFashionRevisionResult(scenario.revision, allowed);
-      return parsedRevision;
+      captured.parsedRevision = parseFashionRevisionResult(scenario.revision, allowed);
+      return captured.parsedRevision;
     },
   };
 
@@ -452,7 +456,7 @@ async function runScenario(scenario: Scenario) {
   };
   const originalCriticRun = await critiqueWinningOutfit(criticInput, provider);
 
-  const result = await applyOutfitRevision({
+  const result = await applyOutfitRevision<Built, HarnessProduct>({
     critic: originalCriticRun.fashion_critic,
     originalCriticRun,
     original: {
@@ -475,8 +479,8 @@ async function runScenario(scenario: Scenario) {
     validate: validateAndBuildLocal,
     productsOf: (built) => built.selected.map(({ product: entry }) => entry),
     score: (products) => {
-      lastScored = scoreOutfit(products, CONTEXT);
-      return lastScored;
+      captured.lastScored = scoreOutfit(products, CONTEXT);
+      return captured.lastScored;
     },
     critique: (input) => critiqueWinningOutfit(input, provider),
     criticInputFor: (products) => ({
@@ -489,9 +493,9 @@ async function runScenario(scenario: Scenario) {
 
   const attempted = result.revision.fashion_revision_attempted;
   const accepted = result.revision.fashion_revision_accepted;
-  const revisedIds = parsedRevision?.items.map((item) => item.product_id)
+  const revisedIds = captured.parsedRevision?.items.map((item: { product_id: string }) => item.product_id)
     ?? (attempted ? proposedIds(scenario.revision) : null);
-  const revisedScore = lastScored?.score ?? null;
+  const revisedScore = captured.lastScored?.score ?? null;
   const finalIds = result.items.map((item) => item.product_id);
 
   const lines = [
@@ -513,7 +517,7 @@ async function runScenario(scenario: Scenario) {
   ];
   if (revisedScore !== null) {
     lines.push(
-      `shouldAcceptRevision:     ${shouldAcceptRevision(originalFashion, lastScored!)} (delta ${revisedScore - originalFashion.score})`,
+      `shouldAcceptRevision:     ${shouldAcceptRevision(originalFashion, captured.lastScored!)} (delta ${revisedScore - originalFashion.score})`,
     );
   }
   console.log(`\n${lines.join('\n')}`);
@@ -549,7 +553,7 @@ async function runScenario(scenario: Scenario) {
   if (scenario.title.startsWith('6.') && (revisedScore === null || revisedScore >= originalFashion.score)) {
     failures.push(`expected real scoreOutfit lower score, got ${revisedScore}`);
   }
-  if (scenario.title.startsWith('7.') && parsedRevision !== null) {
+  if (scenario.title.startsWith('7.') && captured.parsedRevision !== null) {
     failures.push('invalid product ID should fail parseFashionRevisionResult');
   }
   if (scenario.expectAttempted && counts.revision !== 1) {

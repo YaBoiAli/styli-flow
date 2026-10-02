@@ -3,6 +3,8 @@ import { GeminiGenerationError } from '../_shared/geminiResponse.ts';
 import {
   type PreviousOutfitItem,
   REBUILD_FASHION_BAND,
+  candidatesShareTooManyProducts,
+  containsExcludedProduct,
   outfitDiversityScore,
   type DiversityProduct,
 } from './outfitDiversity.ts';
@@ -191,9 +193,7 @@ export function parseGeminiOutfitCandidates(
 }
 
 function identicalToExclude(items: AiItem[], excludeIds: Set<string>): boolean {
-  if (!excludeIds.size) return false;
-  const ids = items.map((item) => item.product_id);
-  return ids.length === excludeIds.size && ids.every((id) => excludeIds.has(id));
+  return containsExcludedProduct(items, excludeIds);
 }
 
 function asDiversityProducts(value: unknown): DiversityProduct[] {
@@ -268,14 +268,37 @@ export function selectBestScoredCandidate<T>(
     );
   };
 
-  return [...pool].sort((a, b) => {
+  const ranked = [...pool].sort((a, b) => {
     if (previous.length) {
       const diversityDelta = diversityOf(b) - diversityOf(a);
       if (diversityDelta !== 0) return diversityDelta;
     }
     if (b.score !== a.score) return b.score - a.score;
     return fashionTieBreak(a, b);
-  })[0];
+  });
+  const diverse = keepDiverseScoredCandidates(ranked);
+  return diverse[0] ?? ranked[0] ?? null;
+}
+
+/**
+ * Greedy skip of near-clone candidates after fashion ranking.
+ * If filtering would leave nothing, keep the highest-scoring valid candidate.
+ */
+export function keepDiverseScoredCandidates<T>(
+  ranked: Array<Extract<ScoredOutfitCandidate<T>, { valid: true }>>,
+): Array<Extract<ScoredOutfitCandidate<T>, { valid: true }>> {
+  if (ranked.length <= 1) return ranked;
+  const kept: Array<Extract<ScoredOutfitCandidate<T>, { valid: true }>> = [];
+  for (const candidate of ranked) {
+    const next = { items: candidate.outfit.items };
+    if (kept.some((existing) =>
+      candidatesShareTooManyProducts([{ items: existing.outfit.items }, next]),
+    )) {
+      continue;
+    }
+    kept.push(candidate);
+  }
+  return kept.length ? kept : ranked.slice(0, 1);
 }
 
 export function evaluateOutfitCandidates<TBuilt, TProduct>(params: {

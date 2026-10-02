@@ -8,6 +8,8 @@ import { critiqueWinningOutfit, toFashionCriticFields } from './critiqueWinningO
 import { parseFashionCriticResult } from './parseFashionCritic.ts';
 import type { FashionAIProvider, FashionCriticInput, FashionCriticResult } from './types.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 

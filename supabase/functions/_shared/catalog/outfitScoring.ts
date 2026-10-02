@@ -11,7 +11,6 @@ import {
   type SeasonAttr,
 } from './fashionAttributes.ts';
 import {
-  isClassyLook,
   keywordHits,
   looksLikeDressFootwear,
   SKIN_TONE_COLORS,
@@ -21,6 +20,7 @@ import {
   STYLE_SILHOUETTE,
   styleAliasTags,
 } from './fashionSignals.ts';
+import { occasionContractFor, styleContractFor } from './styleOccasionContract.ts';
 import {
   colorPlacementWeight,
   isNeutralColorFamily,
@@ -107,21 +107,6 @@ const NEUTRAL_DIMENSION = 70;
 /** Missing product metadata. Neither a match nor a miss. */
 export const UNCERTAIN_DIMENSION = 50;
 const LOUD_PATTERNS = new Set(['graphic', 'floral', 'plaid', 'camo', 'animal', 'logo', 'abstract']);
-const INTENSITY_FRIENDLY_STYLES = new Set([
-  'streetwear',
-  'elevated_streetwear',
-  'elevated streetwear',
-  'y2k',
-  'grunge',
-  'runway',
-]);
-const VOLUME_FRIENDLY_STYLES = new Set([
-  'streetwear',
-  'elevated_streetwear',
-  'elevated streetwear',
-  'y2k',
-  'grunge',
-]);
 const NARROW_FRIENDLY_STYLES = new Set([
   'formal',
   'old_money',
@@ -338,8 +323,7 @@ function styleKeys(style: string): string[] {
 }
 
 function requestedStyleFriendlyVolume(style: string): boolean {
-  const keys = styleKeys(style).map((tag) => attrKey(tag));
-  return keys.some((key) => VOLUME_FRIENDLY_STYLES.has(key) || VOLUME_FRIENDLY_STYLES.has(key.replace(/_/g, ' ')));
+  return styleContractFor(style)?.volumeFriendly ?? false;
 }
 
 function requestedStyleFriendlyNarrow(style: string): boolean {
@@ -376,14 +360,18 @@ function itemStyleAffinity(item: OutfitScoreItem, style: string): number {
     }
   }
   const text = itemText(item);
-  for (const [index, alias] of aliases.entries()) {
-    const hits = keywordHits(text, STYLE_KEYWORDS[alias] ?? STYLE_KEYWORDS[attrKey(alias)] ?? []);
-    if (hits) {
-      evidence += Math.min(index === 0 ? hits * 6 : hits * 3, 18);
-      hasEvidence = true;
-    }
+  const keywords = styleContractFor(style)?.scoringKeywords ?? [];
+  const hits = keywordHits(text, keywords);
+  if (hits) {
+    evidence += Math.min(hits * 6, 18);
+    hasEvidence = true;
   }
-  if (!hasEvidence) return UNCERTAIN_DIMENSION;
+  if (!hasEvidence) {
+    const cluster = itemCluster(item);
+    const wanted = requestedStyleCluster(style);
+    if (cluster && wanted && cluster !== wanted) return 36;
+    return UNCERTAIN_DIMENSION;
+  }
   return clamp100(UNCERTAIN_DIMENSION + evidence);
 }
 
@@ -411,43 +399,58 @@ function itemCluster(item: OutfitScoreItem): keyof typeof STYLE_CLUSTERS | null 
   return null;
 }
 
+function requestedStyleCluster(style: string): keyof typeof STYLE_CLUSTERS | null {
+  const key = attrKey(style);
+  if ((STYLE_CLUSTERS.y2k as readonly string[]).includes(key)) return 'y2k';
+  if ((STYLE_CLUSTERS.prep as readonly string[]).includes(key)) return 'prep';
+  if ((STYLE_CLUSTERS.street as readonly string[]).includes(key)) return 'street';
+  return null;
+}
+
 function scoreStyle(items: OutfitScoreItem[], style: string): DimensionResult {
   const issues: string[] = [];
   const suggestions: string[] = [];
-  const affinities = items.map((item) => itemStyleAffinity(item, style));
-  const average = affinities.reduce((sum, value) => sum + value, 0) / affinities.length;
+  const core = items.filter((item) => item.category === 'top' || item.category === 'bottom' || item.category === 'shoes');
+  const scoredItems = core.length ? core : items;
+  const affinities = scoredItems.map((item) => itemStyleAffinity(item, style));
+  const strongCount = affinities.filter((value) => value >= 68).length;
+  const contradictCount = affinities.filter((value) => value < 48).length;
+  const supportingCount = affinities.filter((value) => value >= 48 && value < 68).length;
   const best = Math.max(...affinities);
-  const worst = Math.min(...affinities);
-  // Soft: one strong anchor can carry a weakly tagged set.
-  let score = average * 0.7 + best * 0.3;
+
+  let score = strongCount >= 3 ? 90 : strongCount === 2 ? 78 : strongCount === 1 ? 64 : 52;
+  if (strongCount >= 1 && supportingCount >= 1 && contradictCount === 0) {
+    score += Math.min(6, supportingCount * 2);
+  }
+  score -= contradictCount * 14;
 
   const clusters = new Set(items.map(itemCluster).filter((cluster): cluster is keyof typeof STYLE_CLUSTERS => cluster !== null));
   const requested = attrKey(style);
   const runwayMix = requested === 'runway';
   if (clusters.has('street') && clusters.has('prep') && !runwayMix) {
     score -= 22;
-    issues.push('The outfit has weak visual connection to the requested style.');
+    issues.push('The pieces mix competing style directions.');
     suggestions.push('Keep street and tailored pieces from competing — pick one direction.');
   }
-  if (average < 48) {
+  if (strongCount === 0) {
     issues.push('The outfit has weak visual connection to the requested style.');
     suggestions.push('Lean on pieces whose tags or cuts match the requested vibe.');
   }
-  if (best < 58 && average < 55) {
-    score -= 12;
+  if (contradictCount >= 1 && strongCount >= 1) {
+    issues.push('A piece pulls against the requested style.');
+    suggestions.push('Swap the off-style piece for something that supports the rest of the look.');
+  }
+  if (best < 58 && strongCount === 0) {
+    score -= 8;
     issues.push('The pieces do not read as one intentional outfit.');
     suggestions.push('Choose a main piece and support it instead of averaging unrelated items.');
   }
-  if (best >= 70 && worst >= 48) score += 6;
 
   return { score: clamp100(score), issues: unique(issues), suggestions: unique(suggestions) };
 }
 
 function requestedStyleFriendlyIntensity(style: string): boolean {
-  const keys = styleKeys(style).map((tag) => attrKey(tag));
-  return keys.some(
-    (key) => INTENSITY_FRIENDLY_STYLES.has(key) || INTENSITY_FRIENDLY_STYLES.has(key.replace(/_/g, ' ')),
-  );
+  return styleContractFor(style)?.intensityFriendly ?? false;
 }
 
 function scoreColor(
@@ -815,20 +818,69 @@ function inferredFormality(item: OutfitScoreItem): FormalityAttr | null {
   return null;
 }
 
-function scoreOccasion(items: OutfitScoreItem[], style: string, occasion: string): DimensionResult {
+function occasionItemEvidence(
+  item: OutfitScoreItem,
+  occasion: string,
+): 'none' | 'weak' | 'strong' {
+  const contract = occasionContractFor(occasion);
+  if (!contract) return 'none';
+  const keys = [contract.key, ...contract.aliases].map((value) => attrKey(value));
+  const tags = (item.occasion_tags ?? []).map(attrKey);
+  const tagHit = tags.some((tag) => keys.includes(tag) || keys.includes(tag.replace(/_/g, ' ')));
+  const text = itemText(item);
+  const hits = keywordHits(text, contract.scoringKeywords);
+  if (tagHit || hits >= 2) return 'strong';
+  if (hits === 1) {
+    const matched = contract.scoringKeywords.filter((keyword) => keywordHits(text, [keyword]) > 0);
+    if (matched.length === 1 && matched[0] === 'black') return 'weak';
+    return 'strong';
+  }
+  return 'none';
+}
+
+function scoreOccasion(items: OutfitScoreItem[], _style: string, occasion: string): DimensionResult {
   const issues: string[] = [];
   const suggestions: string[] = [];
+  const contract = occasionContractFor(occasion);
+  const accepted = contract?.acceptedFormality ?? occasionFormality(occasion);
+  const classyFootwear = contract?.classyFootwear ?? false;
+
+  const core = items.filter((item) => item.category === 'top' || item.category === 'bottom' || item.category === 'shoes');
+  const scoredItems = core.length ? core : items;
+  const evidence = scoredItems.map((item) => ({
+    item,
+    level: occasionItemEvidence(item, occasion),
+  }));
+  const counted = evidence.filter((row) => {
+    if (row.item.category === 'shoes' && row.level === 'none') return false;
+    return true;
+  });
+  const strongCount = counted.filter((row) => row.level === 'strong').length;
+  const weakCount = counted.filter((row) => row.level === 'weak').length;
+
+  let score = strongCount >= 3 ? 90 : strongCount === 2 ? 82 : strongCount === 1 ? 70 : weakCount >= 1 ? 58 : 52;
+  if (strongCount >= 1) score += Math.min(4, weakCount * 2);
+
   const ranks = items
     .map(inferredFormality)
     .filter((value): value is FormalityAttr => value != null)
     .map((value) => FORMALITY_RANK[value])
     .filter((value) => Number.isFinite(value));
-
-  let score = UNCERTAIN_DIMENSION;
+  const known = items.map(inferredFormality).filter((value): value is FormalityAttr => value != null);
+  if (known.length) {
+    const matching = known.filter((value) => accepted.includes(value)).length;
+    if (matching === 0) {
+      score -= 16;
+      issues.push('Outfit formality does not match the requested occasion.');
+      suggestions.push('Choose pieces whose formality matches the occasion.');
+    } else {
+      score += 4;
+    }
+  }
   if (ranks.length >= 2) {
     const spread = Math.max(...ranks) - Math.min(...ranks);
-    score = spread === 0 ? 90 : spread === 1 ? 80 : spread === 2 ? 52 : 34;
     if (spread >= 2) {
+      score -= 10;
       const shoes = byCategory(items, 'shoes');
       if (shoes && looksLikeDressFootwear(shoes) && Math.min(...ranks) <= 1) {
         issues.push('Footwear is significantly more formal than the rest of the outfit.');
@@ -836,18 +888,18 @@ function scoreOccasion(items: OutfitScoreItem[], style: string, occasion: string
       } else {
         issues.push('Formality is inconsistent across the outfit.');
       }
+    } else if (spread === 0 && strongCount === 0) {
+      score += 6;
     }
   }
 
-  const accepted = occasionFormality(occasion);
-  const known = items.map(inferredFormality).filter((value): value is FormalityAttr => value != null);
-  if (known.length && !known.some((value) => accepted.includes(value))) {
-    score -= 12;
-    issues.push('Outfit formality does not match the requested occasion.');
+  if (strongCount === 0) {
+    issues.push('Outfit does not show the requested occasion.');
+    suggestions.push('Add a piece that reads as the requested occasion, not only a matching formality.');
   }
 
   const shoes = byCategory(items, 'shoes');
-  if (shoes && looksLikeDressFootwear(shoes) && !isClassyLook(style, occasion)) {
+  if (shoes && looksLikeDressFootwear(shoes) && !classyFootwear) {
     const rest = items.filter((item) => item.category !== 'shoes').map(inferredFormality);
     const restCasual = rest.some((value) => value === 'casual' || value === 'athletic');
     if (restCasual) {
@@ -857,6 +909,8 @@ function scoreOccasion(items: OutfitScoreItem[], style: string, occasion: string
       }
       suggestions.push('Replace the dress shoe with a casual sneaker.');
     }
+  } else if (shoes && looksLikeDressFootwear(shoes) && classyFootwear) {
+    score += 4;
   }
 
   return { score: clamp100(score), issues: unique(issues), suggestions: unique(suggestions) };
@@ -965,68 +1019,24 @@ function scoreSeason(items: OutfitScoreItem[], season: SeasonAttr): DimensionRes
   return { score: clamp100(score), issues, suggestions };
 }
 
-function scoreWearability(
-  items: OutfitScoreItem[],
-  style: string,
-  occasion: string,
-): DimensionResult {
-  const issues: string[] = [];
-  const suggestions: string[] = [];
-  let score = 70;
+function isSneakerItem(item: OutfitScoreItem): boolean {
+  const sub = (item.subcategory ?? '').toLowerCase();
+  return sub === 'sneakers' || /\bsneaker/.test(itemText(item));
+}
 
-  const clusters = new Set(
-    items.map(itemCluster).filter((cluster): cluster is keyof typeof STYLE_CLUSTERS => cluster !== null),
+function styleAllowsSneakers(style: string): boolean {
+  const contract = styleContractFor(style);
+  if (!contract) return false;
+  if (contract.scoringKeywords.some((word) => word.includes('sneaker'))) return true;
+  return contract.retrievalConcepts.some(
+    (concept) => concept.categories.includes('shoes') && /sneaker/.test(concept.phrase),
   );
-  const requested = attrKey(style);
-  if (clusters.has('street') && clusters.has('prep') && requested !== 'runway') {
-    score -= 24;
-    issues.push('These pieces would not realistically be worn together.');
-    suggestions.push('Rebuild around one aesthetic instead of mixing competing directions.');
-  }
-
-  const ranks = items
-    .map(inferredFormality)
-    .filter((value): value is FormalityAttr => value != null)
-    .map((value) => FORMALITY_RANK[value])
-    .filter((value) => Number.isFinite(value));
-  if (ranks.length >= 2) {
-    const spread = Math.max(...ranks) - Math.min(...ranks);
-    if (spread >= 2) {
-      score -= 16;
-      issues.push('The silhouette and formality combination is not believable as one outfit.');
-    }
-  }
-
-  const affinities = items.map((item) => itemStyleAffinity(item, style));
-  const best = Math.max(...affinities);
-  const average = affinities.reduce((sum, value) => sum + value, 0) / affinities.length;
-  if (best >= 72 && average >= 55) score += 10;
-  if (best < 55) {
-    score -= 10;
-    issues.push('The outfit feels generic rather than styled for this request.');
-  }
-
-  const loud = items.filter((item) => {
-    const pattern = resolvedPattern(item);
-    const intensity = visualIsUsable(item) ? item.visual_attributes?.visual_intensity : null;
-    return Boolean(pattern && LOUD_PATTERNS.has(pattern)) || (typeof intensity === 'number' && intensity >= 7);
-  });
-  const quiet = items.length - loud.length;
-  if (loud.length === 1 && quiet >= 1) score += 8;
-  if (loud.length >= 2 && !requestedStyleFriendlyIntensity(style)) score -= 10;
-
-  const accepted = occasionFormality(occasion);
-  const known = items.map(inferredFormality).filter((value): value is FormalityAttr => value != null);
-  if (known.length && known.every((value) => !accepted.includes(value))) {
-    score -= 8;
-  }
-
-  return { score: clamp100(score), issues: unique(issues), suggestions: unique(suggestions) };
 }
 
 function scoreCohesion(
   items: OutfitScoreItem[],
   style: string,
+  occasion: string,
   footwearPreference: 'include' | 'none' | undefined,
 ): DimensionResult {
   const issues: string[] = [];
@@ -1134,17 +1144,20 @@ function scoreCohesion(
   else if (uniqueVisual.size >= 3) score -= 4;
 
   const shoes = footwearPreference === 'none' ? undefined : byCategory(items, 'shoes');
-  const aliases = styleKeys(style).map(attrKey);
   if (shoes) {
     const dress = looksLikeDressFootwear(shoes);
-    const sneaker = (shoes.subcategory ?? '').toLowerCase() === 'sneakers' || /\bsneaker/.test(itemText(shoes));
-    if (dress && aliases.some((tag) => ['old_money', 'formal', 'quiet_luxury', 'preppy'].includes(tag))) {
-      score += 8;
-    }
-    if (sneaker && aliases.some((tag) => ['streetwear', 'athleisure', 'casual', 'y2k'].includes(tag))) {
-      score += 8;
-    }
-    if (dress && aliases.some((tag) => ['streetwear', 'athleisure'].includes(tag))) {
+    const sneaker = isSneakerItem(shoes);
+    const allowsSneakers = styleAllowsSneakers(style);
+    const classyFootwear = Boolean(occasionContractFor(occasion)?.classyFootwear);
+    const tailoredStyle = ['old money', 'formal', 'quiet luxury', 'preppy', 'dark academia'].includes(
+      attrKey(style).replace(/_/g, ' '),
+    );
+    const streetStyle = ['streetwear', 'athleisure'].includes(attrKey(style).replace(/_/g, ' '));
+    if (dress && (classyFootwear || tailoredStyle)) score += 8;
+    if (sneaker && allowsSneakers && !classyFootwear) score += 8;
+    else if (sneaker && allowsSneakers && classyFootwear) score += 2;
+    else if (sneaker && !allowsSneakers) score -= 10;
+    if (dress && streetStyle && !classyFootwear) {
       score -= 14;
       issues.push('Footwear is significantly more formal than the rest of the outfit.');
       suggestions.push('Replace the dress shoe with a casual sneaker.');
@@ -1167,6 +1180,28 @@ function scoreCohesion(
 
 function unique(values: string[]): string[] {
   return [...new Set(values.filter(Boolean))];
+}
+
+function isHardIssue(issue: string): boolean {
+  return (
+    /mix competing style directions/i.test(issue) ||
+    /pulls against the requested style/i.test(issue) ||
+    /would not realistically be worn together/i.test(issue) ||
+    /formality is inconsistent/i.test(issue) ||
+    /formality does not match the requested occasion/i.test(issue) ||
+    /does not show the requested occasion/i.test(issue) ||
+    /footwear is significantly more formal/i.test(issue) ||
+    /create excessive volume/i.test(issue) ||
+    /silhouette and formality combination is not believable/i.test(issue)
+  );
+}
+
+function isHardSuggestion(suggestion: string): boolean {
+  return (
+    /dress shoe|formality|competing|requested occasion|excessive volume|off-style|one direction/i.test(
+      suggestion,
+    )
+  );
 }
 
 export function scoreOutfit(
@@ -1204,11 +1239,7 @@ export function scoreOutfit(
   const occasion = scoreOccasion([...items], context.style, context.occasion);
   const fit = scoreFit([...items], context.measurements);
   const seasonScore = scoreSeason([...items], season);
-  const cohesion = scoreCohesion([...items], context.style, context.footwearPreference);
-  const wearability = scoreWearability([...items], context.style, context.occasion);
-
-  style.score = clamp100(style.score * 0.7 + wearability.score * 0.3);
-  cohesion.score = clamp100(cohesion.score * 0.55 + wearability.score * 0.45);
+  const cohesion = scoreCohesion([...items], context.style, context.occasion, context.footwearPreference);
 
   const breakdown: OutfitScoreBreakdown = {
     style: Math.round(style.score),
@@ -1241,7 +1272,6 @@ export function scoreOutfit(
     ...fit.issues,
     ...seasonScore.issues,
     ...cohesion.issues,
-    ...wearability.issues,
   ];
   const rawSuggestions = [
     ...style.suggestions,
@@ -1252,19 +1282,19 @@ export function scoreOutfit(
     ...fit.suggestions,
     ...seasonScore.suggestions,
     ...cohesion.suggestions,
-    ...wearability.suggestions,
   ];
 
-  // Strong outfits stay quiet — no filler copy.
-  const strong = score >= 78;
   const dropFootwearGap = context.footwearPreference === 'none';
-  const issues = (strong ? [] : unique(rawIssues)).filter(
-    (issue) => !dropFootwearGap || !/missing shoes|no shoes|incomplete because.{0,40}shoe/i.test(issue),
-  );
-  const suggestions = (strong ? [] : unique(rawSuggestions)).filter(
-    (suggestion) =>
-      !dropFootwearGap || !/add (shoes|footwear|sneakers)|missing shoes/i.test(suggestion),
-  );
+  const strong = score >= 78;
+  const issues = unique(rawIssues)
+    .filter((issue) => !strong || isHardIssue(issue))
+    .filter((issue) => !dropFootwearGap || !/missing shoes|no shoes|incomplete because.{0,40}shoe/i.test(issue));
+  const suggestions = unique(rawSuggestions)
+    .filter((suggestion) => !strong || isHardSuggestion(suggestion))
+    .filter(
+      (suggestion) =>
+        !dropFootwearGap || !/add (shoes|footwear|sneakers)|missing shoes/i.test(suggestion),
+    );
   return {
     score,
     breakdown,

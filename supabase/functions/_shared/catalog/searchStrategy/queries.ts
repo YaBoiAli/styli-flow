@@ -1,4 +1,10 @@
 import type { ProductCategory, ProductGender } from '../types.ts';
+import {
+  MAX_STYLE_QUERY_CONCEPTS,
+  occasionRetrievalConcepts,
+  reservedOccasionQuerySlots,
+  styleRetrievalConcepts,
+} from '../styleOccasionContract.ts';
 import type { SearchIntent, SearchQuery } from './types.ts';
 import {
   CATEGORY_TERMS,
@@ -9,8 +15,7 @@ import {
   type QueryConcept,
 } from './vocabulary.ts';
 
-const DEFAULT_STYLE_CONCEPTS = 5;
-const DEFAULT_OCCASION_CONCEPTS = 2;
+export { MAX_STYLE_QUERY_CONCEPTS, RESERVED_OCCASION_QUERY_SLOTS } from '../styleOccasionContract.ts';
 
 export function generateSearchQueries(
   intent: SearchIntent,
@@ -20,16 +25,24 @@ export function generateSearchQueries(
   const occasionKey = normalizeIntentKey(intent.occasion);
   const category = intent.category;
   const gender = intent.gender;
+  const limit = Math.max(1, maxQueries);
 
-  const styleConcepts = pickConcepts(STYLE_CONCEPTS[styleKey] ?? [], category, gender, DEFAULT_STYLE_CONCEPTS);
-  const occasionOverlap = styleKey === occasionKey;
+  const stylePool = styleRetrievalConcepts(intent.style);
+  const fallbackStylePool = stylePool.length ? stylePool : (STYLE_CONCEPTS[styleKey] ?? []);
+  const occasionPool = occasionRetrievalConcepts(intent.occasion);
+  const fallbackOccasionPool = occasionPool.length ? occasionPool : (OCCASION_CONCEPTS[occasionKey] ?? []);
+
+  const occasionOverlap = Boolean(styleKey) && styleKey === occasionKey;
+  const reservedSlots = occasionOverlap ? 0 : Math.min(reservedOccasionQuerySlots(intent.occasion), limit);
   const occasionConcepts = occasionOverlap
     ? []
-    : pickConcepts(OCCASION_CONCEPTS[occasionKey] ?? [], category, gender, DEFAULT_OCCASION_CONCEPTS);
+    : pickConcepts(fallbackOccasionPool, category, gender, reservedSlots);
+  const styleLimit = Math.min(MAX_STYLE_QUERY_CONCEPTS, Math.max(0, limit - occasionConcepts.length));
+  const styleConcepts = pickConcepts(fallbackStylePool, category, gender, styleLimit);
 
   const base: SearchQuery[] = [
-    ...styleConcepts.map((concept) => toQuery(concept, gender, 'style')),
     ...occasionConcepts.map((concept) => toQuery(concept, gender, 'occasion')),
+    ...styleConcepts.map((concept) => toQuery(concept, gender, 'style')),
   ];
 
   if (!base.length && category) {
@@ -41,16 +54,16 @@ export function generateSearchQueries(
     base.push(...fallback);
   }
 
-  const unique = dedupeQueries(base).slice(0, Math.max(1, maxQueries));
+  const unique = dedupeQueries(base).slice(0, limit);
   const brands = (intent.brands ?? []).map((brand) => brand.trim()).filter(Boolean);
-  if (!brands.length) return unique.slice(0, maxQueries);
+  if (!brands.length) return unique;
 
-  const perBrand = Math.max(1, Math.floor(maxQueries / brands.length));
+  const perBrand = Math.max(1, Math.floor(limit / brands.length));
   const expanded: SearchQuery[] = [];
   for (const brand of brands) {
     for (const query of unique.slice(0, perBrand)) {
       expanded.push({ ...query, brand });
-      if (expanded.length >= maxQueries) return expanded;
+      if (expanded.length >= limit) return expanded;
     }
   }
   return expanded;
@@ -62,6 +75,7 @@ function pickConcepts(
   gender: ProductGender | undefined,
   limit: number,
 ): QueryConcept[] {
+  if (limit <= 0) return [];
   return concepts.filter((concept) => conceptAllowed(concept, category, gender)).slice(0, limit);
 }
 

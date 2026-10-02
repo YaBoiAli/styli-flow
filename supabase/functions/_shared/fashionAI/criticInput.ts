@@ -1,3 +1,4 @@
+import { isFootwearProduct } from '../../generate-outfit/footwearPreference.ts';
 import type { FashionCriticProduct, FashionRevisionCatalogProduct } from './types.ts';
 import { visualForPrompt, type VisualAttributes } from '../catalog/visualAttributes.ts';
 
@@ -64,13 +65,34 @@ export function criticImageUrls(products: FashionCriticProduct[]): string[] {
     .map((product) => product.image_url as string);
 }
 
-/** Slim candidate-pool metadata for revision. No image URLs (token control). */
+export type RevisionCatalogOptions = {
+  /** Current outfit IDs stay eligible even without visual enrichment. */
+  keepProductIds?: Iterable<string>;
+  /** Rebuild / prior-outfit exclusions must never re-enter the revision catalog. */
+  excludeIds?: Iterable<string>;
+  /** No Shoes: drop footwear with the shared isFootwearProduct helper. */
+  footwearPreference?: 'include' | 'none';
+};
+
+/**
+ * Slim candidate-pool metadata for revision. No image URLs (token control).
+ * When keepProductIds is provided, swaps are limited to visually analyzed products
+ * plus the current outfit. Excluded IDs are dropped even if they appear in the pool.
+ */
 export function revisionCatalogFromProducts(
   products: CatalogLike[],
+  options: RevisionCatalogOptions = {},
 ): FashionRevisionCatalogProduct[] {
-  return products.map((product) => {
+  const keep = options.keepProductIds ? new Set([...options.keepProductIds]) : null;
+  const excluded = options.excludeIds ? new Set([...options.excludeIds]) : null;
+  const dropFootwear = options.footwearPreference === 'none';
+  const catalog: FashionRevisionCatalogProduct[] = [];
+  for (const product of products) {
+    if (excluded?.has(product.id)) continue;
+    if (dropFootwear && isFootwearProduct(product)) continue;
     const visual = visualForPrompt(product.visual_attributes);
-    return {
+    if (keep && !keep.has(product.id) && !visual) continue;
+    catalog.push({
       product_id: product.id,
       name: product.name,
       brand: product.brand,
@@ -85,6 +107,7 @@ export function revisionCatalogFromProducts(
       aesthetic_tags: product.aesthetic_tags ?? [],
       occasion_tags: product.occasion_tags ?? [],
       ...(visual ? { visual } : {}),
-    };
-  });
+    });
+  }
+  return catalog;
 }

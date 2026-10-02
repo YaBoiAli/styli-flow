@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "moduleResolution": "bundler"
+  },
+  "include": ["./**/*.ts", "../../deno-globals.d.ts"]
+}

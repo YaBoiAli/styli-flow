@@ -2,23 +2,35 @@
  * Rebuild diversity: quality-first spreading and a soft reuse penalty.
  * Not part of fashion_score. First-generation (no previous outfit) is unchanged.
  */
+import { styleContractFor } from '../_shared/catalog/styleOccasionContract.ts';
 
 export const SHORTLIST_QUALITY_BAND = 4;
 export const REBUILD_FASHION_BAND = 3;
 export const IDENTITY_REUSE_PENALTY = 2.5;
 export const GROUP_REUSE_PENALTY = 1;
 
-export const CANDIDATE_INTERPRETATION_GUIDE = `The five candidates must be meaningfully different valid interpretations of the requested style, not minor variations of one outfit.
+/** Compatible Gemini variation axes derived from STYLE_CONTRACT flags only. */
+export function candidateInterpretationOptions(style: string): string[] {
+  const contract = styleContractFor(style);
+  const options = ['clean/minimal'];
+  if (contract?.volumeFriendly) options.push('more relaxed/baggy');
+  options.push('layered');
+  if (contract?.intensityFriendly) options.push('color-forward');
+  options.push('more elevated');
+  return options;
+}
+
+export function candidateInterpretationGuide(style: string): string {
+  const options = candidateInterpretationOptions(style);
+  const listed = options.map((option, index) => `${index + 1}. ${option}`).join('\n');
+  return `The candidates must be meaningfully different valid interpretations of the requested style, not minor variations of one outfit.
 Prefer distinct products when the catalog supports them.
-Only use an interpretation when the inventory actually supports it. Do not force layering, color-forward looks, or elevated pieces that are not in the list. Do not invent products.
-Suggested interpretations when inventory allows:
-1. clean/minimal
-2. more relaxed/baggy
-3. layered
-4. color-forward
-5. more elevated
-Skip any interpretation the catalog cannot support.
+Only use an interpretation when the inventory actually supports it and it stays compatible with the STYLE CONTRACT. Do not invent products.
+Suggested interpretations when inventory and the STYLE CONTRACT allow:
+${listed}
+Skip any interpretation the catalog cannot support or that contradicts the requested style.
 Stay recognizably in the requested style and occasion. Diversity means different valid interpretations, not a different style.`;
+}
 
 export const REBUILD_OUTFIT_INSTRUCTION = `Create a meaningfully different outfit from the previous outfit.
 Prefer replacing at least two pieces when suitable alternatives exist.
@@ -166,6 +178,42 @@ export function parsePreviousOutfit(value: unknown): PreviousOutfitItem[] {
     });
   }
   return items;
+}
+
+/** Canonical pipeline IDs from exclude_product_ids (strings or {product_id|id}). */
+export function parseExcludeProductIds(value: unknown): Set<string> {
+  return new Set(parsePreviousOutfit(value).map((item) => item.product_id));
+}
+
+/**
+ * Rebuild exclusion set: parsed exclude_product_ids plus previous-outfit IDs.
+ * First generation (empty exclude + empty previous) stays empty.
+ */
+export function collectExcludeIds(
+  excludeProductIds: unknown,
+  previousOutfit: PreviousOutfitItem[] = [],
+): Set<string> {
+  const ids = parseExcludeProductIds(excludeProductIds);
+  for (const item of previousOutfit) {
+    if (item.product_id) ids.add(item.product_id);
+  }
+  return ids;
+}
+
+export function withoutExcludedProducts<T extends { id: string }>(
+  products: T[],
+  excludeIds: Set<string>,
+): T[] {
+  if (!excludeIds.size) return products;
+  return products.filter((product) => !excludeIds.has(product.id));
+}
+
+export function containsExcludedProduct(
+  items: Array<{ product_id: string }>,
+  excludeIds: Set<string>,
+): boolean {
+  if (!excludeIds.size) return false;
+  return items.some((item) => excludeIds.has(item.product_id));
 }
 
 export function previousIdentitySet(previous: PreviousOutfitItem[]): Set<string> {
@@ -358,6 +406,12 @@ export function uniqueProductIds(outfits: Array<{ items: Array<{ product_id: str
   return ids;
 }
 
+/**
+ * Pairwise / small-set clone check. Unique IDs <= ceil(slots / n) + 1.
+ * Two 3-item outfits: unique <= 4 → identical (3) and share-2 (4) are clones;
+ * share-1 (5 unique) is allowed. Two 2-item (no-shoes) outfits: unique <= 3,
+ * so sharing one piece counts as a near-clone. Not a fashion-score dimension.
+ */
 export function candidatesShareTooManyProducts(
   outfits: Array<{ items: Array<{ product_id: string }> }>,
 ): boolean {

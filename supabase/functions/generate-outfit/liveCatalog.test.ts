@@ -13,6 +13,8 @@ import {
   retrieveLiveChannel3Catalog,
 } from './liveRetrieval.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 
@@ -475,7 +477,7 @@ async function main() {
     assert(mapped.occasion_tags.includes('everyday'), '5: Channel3 occasion tags survive');
     assert(mapped.fit === 'oversized' && mapped.silhouette === 'boxy', '5: Channel3 fit/silhouette survive');
     assert(mapped.colors.includes('black'), '5: Channel3 colors survive');
-    assert(mapped.sizes?.includes('M'), '5: Channel3 sizes survive in memory');
+    assert(mapped.sizes?.includes('M') === true, '5: Channel3 sizes survive in memory');
     assert(!mapped.style_tags.includes('y2k'), '5b: missing tags are not invented');
     assert(metaNorm.incoming.style_tags === mapped.style_tags.length, '6: style tag counts are preserved');
   }

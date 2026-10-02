@@ -16,6 +16,8 @@ import type {
   FashionRevisionResult,
 } from './types.ts';
 
+declare const process: { exit(code?: number): void };
+
 let failed = 0;
 let passed = 0;
 
@@ -127,14 +129,19 @@ assert(
   '16 / 29: unknown product ID rejected',
 );
 
-type Built = { selected: Array<{ product: { id: string; category: string }; reason: string }>; totalPrice: number };
 type Product = { id: string; category: string; name: string };
+type Built = { selected: Array<{ product: Product; reason: string }>; totalPrice: number };
 
 const catalog = {
   t1: { id: 't1', category: 'top', name: 'Tee' },
   b1: { id: 'b1', category: 'bottom', name: 'Jeans' },
   s1: { id: 's1', category: 'shoes', name: 'Sneakers' },
   b2: { id: 'b2', category: 'bottom', name: 'Chinos' },
+  tA: { id: 'tA', category: 'top', name: 'Prev Tee' },
+  bA: { id: 'bA', category: 'bottom', name: 'Prev Jeans' },
+  sA: { id: 'sA', category: 'shoes', name: 'Prev Sneakers' },
+  tG: { id: 'tG', category: 'top', name: 'Fresh Tee' },
+  bH: { id: 'bH', category: 'bottom', name: 'Fresh Pants' },
 } as const;
 
 function fakeValidate(outfit: { items: Array<{ product_id: string; reason: string }> }): Built {
@@ -165,7 +172,7 @@ const originalItems = [
   { product_id: 's1', reason: 'shoes' },
 ];
 const originalBuilt = fakeValidate({ items: originalItems });
-const originalProducts = originalBuilt.selected.map(({ product }) => product);
+const originalProducts: Product[] = originalBuilt.selected.map(({ product }) => product);
 
 const originalCriticRun = (result: FashionCriticResult | undefined, available = true): CriticRunResult => ({
   fashion_critic_available: available,
@@ -240,10 +247,11 @@ async function runRevision(
     available?: boolean;
     validate?: typeof fakeValidate;
     score?: typeof scoreFor;
+    previousOutfitItems?: Array<{ product_id: string }>;
   } = {},
 ) {
   let critiqueCalls = 0;
-  const result = await applyOutfitRevision({
+  const result = await applyOutfitRevision<Built, Product>({
     critic: criticResult,
     originalCriticRun: originalCriticRun(criticResult, extras.available ?? Boolean(criticResult)),
     original: {
@@ -262,7 +270,7 @@ async function runRevision(
       },
     }),
     validate: extras.validate ?? fakeValidate,
-    productsOf: (built) => built.selected.map(({ product }) => product),
+    productsOf: (built: Built): Product[] => built.selected.map(({ product }) => product),
     score: extras.score ?? scoreFor,
     critique: async (input) => {
       critiqueCalls += 1;
@@ -276,6 +284,7 @@ async function runRevision(
       };
     },
     criticInputFor,
+    previousOutfitItems: extras.previousOutfitItems,
   });
   return { result, critiqueCalls };
 }
@@ -332,7 +341,7 @@ async function main() {
   assert(weakAccepted.critiqueCalls === 1, '22: accepted revision → one extra critic');
   assert(weakAccepted.result.criticCalls === 2, '22b: two critic calls total recorded');
   assert(
-    weakAccepted.result.critic.fashion_critic?.strengths.includes('b2'),
+    weakAccepted.result.critic.fashion_critic?.strengths.includes('b2') === true,
     '24: final critic describes revised outfit',
   );
 
@@ -356,11 +365,100 @@ async function main() {
     { score: () => ({ ...originalScore, score: 77 }) },
   );
   assert(plusOne.result.revision.fashion_revision_accepted === false, '11b: +1 not accepted');
+  assert(plusOne.result.revision.fashion_revision_reason === 'insufficient_improvement', '11c: <2 keeps score reason');
   assert(plusOne.critiqueCalls === 0, '21b: insufficient improvement → one critic only');
+
+  const previousRebuild = [
+    { product_id: 'tA' },
+    { product_id: 'bA' },
+    { product_id: 'sA' },
+  ];
+  const nearCloneRevision = {
+    items: [{ product_id: 'tA' }, { product_id: 'bA' }, { product_id: 's1' }],
+  };
+  const rebuildNearClone = await runRevision(
+    critic({ overall_assessment: 'weak' }),
+    nearCloneRevision,
+    { score: () => betterScore, previousOutfitItems: previousRebuild },
+  );
+  assert(rebuildNearClone.result.revision.fashion_revision_attempted === true, '6d: rebuild near-clone still attempts');
+  assert(rebuildNearClone.result.revision.fashion_revision_accepted === false, '6d: +2 near-clone of previous rebuild is rejected');
+  assert(rebuildNearClone.result.revision.fashion_revision_reason === 'rebuild_diversity', '6d: reason is rebuild_diversity');
+  assert(rebuildNearClone.result.fashion.score === 76, '6d: original winner is kept');
+  assert(rebuildNearClone.result.items.map((item) => item.product_id).join(',') === 't1,b1,s1', '6d: original items remain');
+  assert(rebuildNearClone.critiqueCalls === 0, '6d: rejected diversity does not re-critique');
+
+  const diverseRevision = {
+    items: [{ product_id: 'tG' }, { product_id: 'bH' }, { product_id: 's1' }],
+  };
+  const rebuildDiverse = await runRevision(
+    critic({ overall_assessment: 'weak' }),
+    diverseRevision,
+    { score: () => betterScore, previousOutfitItems: previousRebuild },
+  );
+  assert(rebuildDiverse.result.revision.fashion_revision_accepted === true, '6d: +2 diverse rebuild revision is accepted');
+  assert(rebuildDiverse.result.fashion.score === 78, '6d: diverse revision replaces the score');
+  assert(rebuildDiverse.result.items.map((item) => item.product_id).join(',') === 'tG,bH,s1', '6d: diverse revision items are kept');
+
+  const rebuildLowScore = await runRevision(
+    critic({ overall_assessment: 'weak' }),
+    diverseRevision,
+    { score: () => ({ ...originalScore, score: 77 }), previousOutfitItems: previousRebuild },
+  );
+  assert(rebuildLowScore.result.revision.fashion_revision_accepted === false, '6d: rebuild <2 is still rejected');
+  assert(rebuildLowScore.result.revision.fashion_revision_reason === 'insufficient_improvement', '6d: rebuild <2 uses score reason, not diversity');
+
+  const firstGenPlusTwo = await runRevision(critic({ overall_assessment: 'weak' }), goodRevision);
+  assert(firstGenPlusTwo.result.revision.fashion_revision_accepted === true, '6d: non-rebuild +2 remains accepted');
+
+  const noShoesPrevious = [{ product_id: 'tA' }, { product_id: 'bA' }];
+  const noShoesNearClone = await runRevision(
+    critic({ overall_assessment: 'weak' }),
+    { items: [{ product_id: 'tA' }, { product_id: 'b2' }] },
+    {
+      validate: fakeValidateNoShoes,
+      score: () => betterScore,
+      previousOutfitItems: noShoesPrevious,
+    },
+  );
+  assert(
+    noShoesNearClone.result.revision.fashion_revision_accepted === false,
+    '6d: No Shoes +2 near-clone of previous rebuild is rejected',
+  );
+  assert(noShoesNearClone.result.revision.fashion_revision_reason === 'rebuild_diversity', '6d: No Shoes uses the same diversity helper');
+
+  const noShoesDiverse = await runRevision(
+    critic({ overall_assessment: 'weak' }),
+    { items: [{ product_id: 't1' }, { product_id: 'b2' }] },
+    {
+      validate: fakeValidateNoShoes,
+      score: () => betterScore,
+      previousOutfitItems: noShoesPrevious,
+    },
+  );
+  assert(
+    noShoesDiverse.result.revision.fashion_revision_accepted === true,
+    '6d: No Shoes +2 diverse revision remains eligible',
+  );
 
   const noImages = await runRevision(undefined, goodRevision, { available: false });
   assert(noImages.result.revision.fashion_revision_attempted === false, '25: no critic → original returned');
   assert(noImages.result.fashion.score === 76, '25b: original still returned');
+
+  const genderMismatch = await runRevision(
+    critic({ overall_assessment: 'weak' }),
+    { items: [{ product_id: 't1' }, { product_id: 'b2' }, { product_id: 's1' }] },
+    { validate: () => { throw new Error('gender_mismatch'); } },
+  );
+  assert(
+    genderMismatch.result.revision.fashion_revision_accepted === false,
+    '6e: revision cannot bypass the final gender gate',
+  );
+  assert(
+    genderMismatch.result.revision.fashion_revision_reason === 'gender_mismatch',
+    '6e: gender_mismatch is recorded on the revision',
+  );
+  assert(genderMismatch.result.fashion.score === 76, '6e: original winner is kept after gender_mismatch');
 
   const addedShoes = await runRevision(
     critic({ overall_assessment: 'weak' }),
